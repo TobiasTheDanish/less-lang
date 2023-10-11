@@ -100,7 +100,7 @@ void compile_bin_op(compiler_T* c, ast_node_T* node) {
 			break;
 
 		default:
-			printf("Unexpected node in expr. Found: %s, expects: %s or %s.\n", ast_get_name(bin_op->rhs->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_VALUE));
+			printf("Unexpected node in bin_op. Found: %s, expects: %s or %s.\n", ast_get_name(bin_op->rhs->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_VALUE));
 			exit(1);
 	}
 

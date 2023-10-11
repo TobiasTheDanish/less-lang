@@ -33,7 +33,7 @@ void advance(lexer_T* lexer) {
 }
 
 token_T* read_ident(lexer_T* lexer) {
-	char* value = malloc(sizeof(char));
+	char* value = calloc(2, sizeof(char));
 	size_t i = 0;
 
 	while (isalnum(lexer->c)) {
@@ -45,13 +45,15 @@ token_T* read_ident(lexer_T* lexer) {
 
 	if (strcmp("else", value) == 0) {
 		return token_new(T_ELSE, value);
+	} else if (strcmp("dump", value) == 0) {
+		return token_new(T_DUMP, value);
 	}
 
 	return token_new(T_IDENT, value);
 }
 
 token_T* read_number(lexer_T* lexer) {
-	char* value = malloc(sizeof(char));
+	char* value = calloc(2, sizeof(char));
 	size_t i = 0;
 
 	while (isdigit(lexer->c)) {
@@ -72,7 +74,7 @@ void skip_whitespace(lexer_T* lexer) {
 }
 
 token_T* read_if(lexer_T* lexer) {
-	char* str = malloc(2 * sizeof(char));
+	char* str = calloc(2, sizeof(char));
 	for (size_t i = 0; i < 2; i++) {
 		str[i] = lexer->c;
 		advance(lexer);
