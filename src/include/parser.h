@@ -3,6 +3,7 @@
 
 #include "ast_nodes.h"
 #include "lexer.h"
+#include "symbol_table.h"
 #include "token.h"
 
 typedef struct PARSER_STRUCT {
@@ -11,6 +12,7 @@ typedef struct PARSER_STRUCT {
 	size_t t_count;
 	size_t t_index;
 	size_t if_count;
+	symbol_table_T* s_table;
 } parser_T;
 
 parser_T* parser_new(lexer_T* lexer, size_t t_count);

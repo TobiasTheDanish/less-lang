@@ -8,15 +8,21 @@
 
 void compile_expr(compiler_T* c, ast_node_T* node);
 
-compiler_T* compiler_new(ast_node_T* program, char* output_file) {
+compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, char* output_file) {
 	compiler_T* c = malloc(sizeof(compiler_T));
 	c->program = program;
 	c->file = open_file_m(output_file, "w");
+	c->s_table = s_table;
+	c->stack_pointer = 0;
 
 	return c;
 }
 
 void compile_dump(compiler_T* c, ast_node_T* node) {
+	if (c->stack_pointer < 1) {
+		printf("Stack pointer to small for dump operation.\n");
+		exit(1);
+	}
 	append_file(c->file, "    ; -- dump --\n");
 	append_file(c->file, "    pop rdi\n");
 	append_file(c->file, "    call  _dump\n");
@@ -24,6 +30,10 @@ void compile_dump(compiler_T* c, ast_node_T* node) {
 
 void compile_op(compiler_T* c, ast_node_T* node) {
 	ast_op_T* op = (ast_op_T*) node;
+	if (c->stack_pointer < 2) {
+		printf("Stack pointer to small for binary operation.\n");
+		exit(1);
+	}
 
 	switch (op->t->type) {
         case T_PLUS:
@@ -61,6 +71,8 @@ void compile_op(compiler_T* c, ast_node_T* node) {
 			printf("Unreachable code in compile_op");
 			exit(1);
 	}
+
+	c->stack_pointer -= 1;
 }
 
 void compile_value(compiler_T* c, ast_node_T* node) {
@@ -75,10 +87,11 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 			append_file(c->file, "    push ");
 			append_file(c->file, value->t->value);
 			append_file(c->file, "\n");
+			c->stack_pointer += 1;
 			break;
 
 		case T_IDENT:
-			printf("[compile_value]: Identifiers currently not implemented for compilation.");
+			printf("[compile_value]: Identifiers currently not implemented for compilation.\n");
 			break;
 
 		default:
@@ -109,6 +122,10 @@ void compile_bin_op(compiler_T* c, ast_node_T* node) {
 
 void compile_cond_op(compiler_T* c, ast_node_T* node) {
 	ast_cond_op_T* cond_op = (ast_cond_op_T*) node;
+	if (c->stack_pointer < 2) {
+		printf("Stack pointer to small for conditional operation.\n");
+		exit(1);
+	}
 
 	switch (cond_op->t->type) {
 		case T_EQUALS:
@@ -138,6 +155,8 @@ void compile_cond_op(compiler_T* c, ast_node_T* node) {
 			exit(1);
 
 	}
+
+	c->stack_pointer -= 2;
 }
 
 void compile_conditional(compiler_T* c, ast_node_T* node) {
@@ -206,6 +225,7 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 	append_file(c->file, str);
 }
 
+// expr : if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
 void compile_expr(compiler_T* c, ast_node_T* node) {
 	//printf("compile_expr\n");
 	ast_expr_T* expr = (ast_expr_T*) node;

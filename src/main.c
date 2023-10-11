@@ -25,13 +25,13 @@ int main(int argc, char** argv) {
 	parser_T* parser = parser_new(lexer, 2);
 	ast_node_T* program = parser_parse(parser);
 	if (argc == 2) {
-		compiler_T* compiler = compiler_new(program, "output.asm");
+		compiler_T* compiler = compiler_new(program, parser->s_table, "output.asm");
 		compile(compiler);
 	} else if (argc == 4) {
 		char* output = argv[3];
 		char outfile[strlen(output)+5];
 		snprintf(outfile, strlen(output)+5, "%s.asm", output);
-		compiler_T* compiler = compiler_new(program, outfile);
+		compiler_T* compiler = compiler_new(program, parser->s_table, outfile);
 		compile(compiler);
 	} else {
 		print_usage();

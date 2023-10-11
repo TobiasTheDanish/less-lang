@@ -1,5 +1,7 @@
 #include "include/parser.h"
 #include "include/ast_nodes.h"
+#include "include/symbol.h"
+#include "include/symbol_table.h"
 #include "include/token.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +12,7 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 	parser_T* parser = malloc(sizeof(parser_T));
 	parser->lexer = lexer;
 	parser->if_count = 0;
+	parser->s_table = symbol_table_new();
 	parser->t_count = t_count;
 	parser->t_index = 0;
 	parser->tokens = malloc(t_count * sizeof(token_T*));
@@ -41,6 +44,14 @@ ast_node_T* value(parser_T* parser) {
 
 	switch (token->type) {
 		case T_IDENT:
+			if (symbol_table_contains(parser->s_table, token->value)) {
+				res = ast_new_value(token);
+				consume(parser);
+				break;
+			} else {
+				printf("Use of '%s', before declaration.\n", token->value);
+				exit(1);
+			}
 		case T_INTEGER:
 			res = ast_new_value(token);
 			consume(parser);

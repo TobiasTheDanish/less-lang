@@ -100,7 +100,7 @@ char peek(lexer_T* lexer) {
 }
 
 token_T* lexer_next_token(lexer_T* lexer) {
-	if (lexer->c != '\0') {
+	if (lexer->c != '\0' && lexer->c != -1) {
 		if (isspace(lexer->c)) {
 			skip_whitespace(lexer);
 		}
@@ -157,7 +157,7 @@ token_T* lexer_next_token(lexer_T* lexer) {
 				return advance_with_token(lexer, T_GREATER);
 		
 			default:
-				printf("Unexpected character when lexing: '%c'.\n", lexer->c);
+				printf("Unexpected character when lexing: '%d'.\n", lexer->c);
 				return token_new(T_EOF, "EOF");
 		}
 	}
