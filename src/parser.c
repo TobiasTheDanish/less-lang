@@ -171,6 +171,16 @@ ast_node_T* else_block(parser_T* parser) {
 	return ast_new_else(index, b);
 }
 
+// while : WHILE conditional block ;
+ast_node_T* while_block(parser_T* parser) {
+	size_t index = ++parser->if_count;
+	consume(parser);
+	ast_node_T* cond = conditional(parser);
+	ast_node_T* b = block(parser);
+
+	return ast_new_while(index, cond, b);
+}
+
 // if : IF conditional block (else)? ;
 ast_node_T* if_block(parser_T* parser) {
 	size_t index = ++parser->if_count;
@@ -186,19 +196,70 @@ ast_node_T* if_block(parser_T* parser) {
 	return ast_new_if(index, cond, b, elze);
 }
 
-// expr : if | bin_op SEMI | dump SEMI;
+// assign : ID ASSIGN (value | bin_op) ;
+ast_node_T* assign(parser_T* parser) {
+	token_T ident = *parser->tokens[parser->t_index];
+	if (symbol_table_contains(parser->s_table, ident.value)) {
+		consume(parser);
+		consume(parser);
+		ast_node_T* v;
+		if (token_is_op(parser->tokens[(parser->t_index + 1) %parser->t_count])) {
+			v = bin_op(parser);
+		} else {
+			v = value(parser);
+		}
+
+		return ast_new_assign(&ident, v);
+	} else {
+		printf("Use of '%s', before declaration.\n", ident.value);
+		exit(1);
+	}
+
+}
+
+// var_decl : LET assign SEMI ;
+ast_node_T* var_decl(parser_T* parser) {
+	consume(parser);
+	if (!symbol_table_contains(parser->s_table, parser->tokens[parser->t_index]->value)) {
+		char* name = parser->tokens[parser->t_index]->value;
+		symbol_T* s = symbol_new(name, 4);
+
+		symbol_table_put(parser->s_table, s);
+		ast_node_T* a = assign(parser);
+		consume(parser);
+		return ast_new_var_decl(a);
+	} else {
+		printf("Redeclaration of existing variable '%s'.\n", parser->tokens[parser->t_index]->value);
+		exit(1);
+	}
+
+}
+
+// expr : if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
 ast_node_T* expr(parser_T* parser) {
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T* child;
 
 	if (token->type == T_IF) {
 		child = if_block(parser);
+	} else if (token->type == T_WHILE) {
+		child = while_block(parser);
 	} else if (token->type == T_DUMP) {
 		child = dump(parser);
 		consume(parser);
+	} else if (token->type == T_LET) {
+		child = var_decl(parser);
+	} else if (token->type == T_IDENT) {
+		if (parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_ASSIGN) {
+			child = assign(parser);
+			consume(parser);
+		} else {
+			child = bin_op(parser);
+			consume(parser);
+		}
 	} else {
-		child = bin_op(parser);
-		consume(parser);
+		printf("Invalid token type in expression. Found: %s.\n", token_get_name(token->type));
+		exit(1);
 	}
 
 	return ast_new_expr(child);

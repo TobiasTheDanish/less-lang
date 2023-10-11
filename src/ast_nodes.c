@@ -43,6 +43,42 @@ ast_node_T* ast_new_expr(ast_node_T* child) {
 	return (ast_node_T*) expr;
 }
 
+ast_node_T* ast_new_var_decl(ast_node_T* assign) {
+	ast_node_T* base = malloc(sizeof(ast_node_T));
+	base->type = AST_VAR_DECL;
+
+	ast_var_decl_T* decl = malloc(sizeof(ast_var_decl_T*));
+	decl->base = *base;
+	decl->assign = assign;
+	
+	return (ast_node_T*) decl;
+}
+
+ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value) {
+	ast_node_T* base = malloc(sizeof(ast_node_T));
+	base->type = AST_ASSIGN;
+
+	ast_assign_T* assign = malloc(sizeof(ast_assign_T));
+	assign->base = *base;
+	assign->ident = ident;
+	assign->value = value;
+
+	return (ast_node_T*) assign;
+}
+
+ast_node_T* ast_new_while(size_t index, ast_node_T* cond, ast_node_T* block) {
+	ast_node_T* base = malloc(sizeof(ast_node_T));
+	base->type = AST_WHILE;
+
+	ast_while_T* w = malloc(sizeof(ast_while_T));
+	w->base = *base;
+	w->index = index;
+	w->cond = cond;
+	w->block = block;
+
+	return (ast_node_T*) w;
+}
+
 ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_node_T* elze){
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_IF;
@@ -130,6 +166,9 @@ char* ast_get_name(ast_node_E type) {
 		"Program",
 		"Block", 
 		"Expression", 
+		"Variable declaration", 
+		"Assign", 
+		"While", 
 		"If",
 		"Else",
 		"Conditional",

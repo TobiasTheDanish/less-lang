@@ -47,6 +47,10 @@ token_T* read_ident(lexer_T* lexer) {
 		return token_new(T_ELSE, value);
 	} else if (strcmp("dump", value) == 0) {
 		return token_new(T_DUMP, value);
+	} else if (strcmp("let", value) == 0) {
+		return token_new(T_LET, value);
+	} else if (strcmp("while", value) == 0) {
+		return token_new(T_WHILE, value);
 	}
 
 	return token_new(T_IDENT, value);
@@ -142,8 +146,7 @@ token_T* lexer_next_token(lexer_T* lexer) {
 						advance(lexer);
 						return token_new(T_EQUALS, "==");
 					} else {
-						printf("Unexpected double character when lexing: '%c' '%c'.\n", lexer->c, peek(lexer));
-						exit(1);
+						return advance_with_token(lexer, T_ASSIGN);
 					}
 				}
 

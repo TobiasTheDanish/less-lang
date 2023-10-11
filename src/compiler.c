@@ -1,5 +1,4 @@
 #include "include/compiler.h"
-#include "include/ast_nodes.h"
 #include "include/file_util.h"
 #include "include/token.h"
 #include <stdio.h>
@@ -221,6 +220,10 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 		case AST_DUMP:
 			compile_dump(c, expr->child);
 			break;
+		case AST_VAR_DECL:
+		case AST_ASSIGN:
+		case AST_WHILE:
+			break;
 
 		case AST_ELSE:
 		case AST_BLOCK:
@@ -241,7 +244,6 @@ void compile_program(compiler_T* c, ast_node_T* node) {
 	//printf("compile_program\n");
 	//printf("program type: %u\n", program->type);
 	if (node->type == AST_PROGRAM) {
-		//printf("compile_block\n");
 		ast_program_T* program = (ast_program_T*) node;
 
 		for (size_t i = 0; i < program->count; i++) {
@@ -294,6 +296,12 @@ void compile(compiler_T* c) {
 	append_file(c->file, "		add     rsp, 40\n");
 	append_file(c->file, "		ret\n\n");
 	append_file(c->file, "_start:\n");
+	append_file(c->file, "    push    rbp\n");
+	append_file(c->file, "    mov     rbp, rsp\n");
+	append_file(c->file, "    sub     rsp, ");
+	char str[12];
+	snprintf(str, 12, "%zu\n", (c->s_table->count * 8));
+	append_file(c->file, str);
 
 	compile_program(c, c->program);
 
