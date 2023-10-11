@@ -41,6 +41,7 @@ typedef struct AST_NODE_EXPR {
 
 typedef struct AST_NODE_IF {
 	ast_node_T base;
+	size_t index;
 	ast_node_T* cond;
 	ast_node_T* block;
 	ast_node_T* elze;
@@ -48,6 +49,7 @@ typedef struct AST_NODE_IF {
 
 typedef struct AST_NODE_ELSE {
 	ast_node_T base;
+	size_t index;
 	ast_node_T* block;
 } ast_else_T;
 
@@ -80,11 +82,12 @@ typedef struct AST_NODE_VALUE {
 	token_T* t;
 } ast_value_T;
 
+ast_node_T* ast_new(ast_node_E type);
 ast_node_T* ast_new_program(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_block(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_expr(ast_node_T* child);
-ast_node_T* ast_new_if(ast_node_T* cond, ast_node_T* block, ast_node_T* elze);
-ast_node_T* ast_new_else(ast_node_T* block);
+ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_node_T* elze);
+ast_node_T* ast_new_else(size_t index, ast_node_T* block);
 ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs);
 ast_node_T* ast_new_cond_op(token_T* t);
 ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs);

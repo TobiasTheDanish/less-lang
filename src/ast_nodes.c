@@ -43,12 +43,13 @@ ast_node_T* ast_new_expr(ast_node_T* child) {
 	return (ast_node_T*) expr;
 }
 
-ast_node_T* ast_new_if(ast_node_T* cond, ast_node_T* block, ast_node_T* elze){
+ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_node_T* elze){
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_IF;
 
 	ast_if_T* if_node = malloc(sizeof(ast_if_T));
 	if_node->base = *base;
+	if_node->index = index;
 	if_node->cond = cond;
 	if_node->block = block;
 	if_node->elze = elze;
@@ -56,12 +57,13 @@ ast_node_T* ast_new_if(ast_node_T* cond, ast_node_T* block, ast_node_T* elze){
 	return (ast_node_T*) if_node;
 }
 
-ast_node_T* ast_new_else(ast_node_T* block){
+ast_node_T* ast_new_else(size_t index, ast_node_T* block){
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_ELSE;
 
 	ast_else_T* elze = malloc(sizeof(ast_else_T));
 	elze->base = *base;
+	elze->index = index;
 	elze->block = block;
 
 	return (ast_node_T*) elze;

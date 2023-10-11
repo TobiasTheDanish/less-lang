@@ -10,6 +10,7 @@ typedef struct PARSER_STRUCT {
 	token_T** tokens;
 	size_t t_count;
 	size_t t_index;
+	size_t if_count;
 } parser_T;
 
 parser_T* parser_new(lexer_T* lexer, size_t t_count);

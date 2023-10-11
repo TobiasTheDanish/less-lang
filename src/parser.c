@@ -9,6 +9,7 @@ ast_node_T* expr(parser_T* parser);
 parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 	parser_T* parser = malloc(sizeof(parser_T));
 	parser->lexer = lexer;
+	parser->if_count = 0;
 	parser->t_count = t_count;
 	parser->t_index = 0;
 	parser->tokens = malloc(t_count * sizeof(token_T*));
@@ -163,14 +164,16 @@ ast_node_T* block(parser_T* parser) {
 }
 //else : ELSE block ;
 ast_node_T* else_block(parser_T* parser) {
+	size_t index = parser->if_count;
 	consume(parser);
 	ast_node_T* b = block(parser);
 
-	return ast_new_else(b);
+	return ast_new_else(index, b);
 }
 
 // if : IF conditional block (else)? ;
 ast_node_T* if_block(parser_T* parser) {
+	size_t index = ++parser->if_count;
 	consume(parser);
 	ast_node_T* cond = conditional(parser);
 	ast_node_T* b = block(parser);

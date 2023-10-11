@@ -165,16 +165,15 @@ void compile_block(compiler_T* c, ast_node_T* node) {
 
 	for (size_t i = 0; i < block->count; i++) {
 		compile_expr(c, block->expressions[i]);
-		append_file(c->file, "    ; -- dump --\n");
-		append_file(c->file, "    pop rdi\n");
-		append_file(c->file, "    call  _dump\n");
 		//printf("Compiled %zu expressions out of %zu\n", i, block->count);
 	}
 }
 
 void compile_else(compiler_T* c, ast_node_T* node) {
 	ast_else_T* elze = (ast_else_T*) node;
-	append_file(c->file, ".else:\n");
+	char str[50];
+	sprintf(str, ".else_%zu:\n", elze->index);
+	append_file(c->file, str);
 	compile_block(c, elze->block);
 }
 
@@ -185,19 +184,27 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 	
 	append_file(c->file, "    test al, al\n");
 	if (if_node->elze == NULL) {
-		append_file(c->file, "    jz .end\n");
+		char str[50];
+		sprintf(str, "    jz .end_%zu\n", if_node->index);
+		append_file(c->file, str);
 	} else {
-		append_file(c->file, "    jz .else\n");
+		char str[50];
+		sprintf(str, "    jz .else_%zu\n", if_node->index);
+		append_file(c->file, str);
 	}
 
 	compile_block(c, if_node->block);
 	
 	if (if_node->elze != NULL) {
-		append_file(c->file, "    jmp .end\n");
+		char str[50];
+		sprintf(str, "    jmp .end_%zu\n", if_node->index);
+		append_file(c->file, str);
 		compile_else(c, if_node->elze);
 	}
 
-	append_file(c->file, ".end:\n");
+	char str[50];
+	sprintf(str, ".end_%zu:\n", if_node->index);
+	append_file(c->file, str);
 }
 
 void compile_expr(compiler_T* c, ast_node_T* node) {
