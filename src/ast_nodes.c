@@ -1,6 +1,13 @@
 #include "include/ast_nodes.h"
 #include <stdlib.h>
 
+ast_node_T* ast_new(ast_node_E type) {
+	ast_node_T* base = malloc(sizeof(ast_node_T));
+	base->type = type;
+
+	return base;
+}
+
 ast_node_T* ast_new_program(ast_node_T** expressions, size_t count) {
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_PROGRAM;
@@ -122,11 +129,13 @@ char* ast_get_name(ast_node_E type) {
 		"Block", 
 		"Expression", 
 		"If",
+		"Else",
 		"Conditional",
 		"Conditional operater",
 		"Binary operation", 
 		"Operation", 
 		"Value", 
+		"Dump", 
 		"No operation" 
 	};
 

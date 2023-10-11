@@ -19,6 +19,7 @@ typedef enum TOKEN_E {
 	T_IF,
 	T_ELSE,
 	T_SYSCALL,
+	T_DUMP,
 	T_EOF,
 } token_E;
 

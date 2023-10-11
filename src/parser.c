@@ -27,6 +27,12 @@ void consume(parser_T* parser) {
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
 }
 
+// dump: DUMP;
+ast_node_T* dump(parser_T* parser) {
+	consume(parser);
+	return ast_new(AST_DUMP);
+}
+
 // value: (ID | INT);
 ast_node_T* value(parser_T* parser) {
 	ast_node_T* res;
@@ -174,16 +180,19 @@ ast_node_T* if_block(parser_T* parser) {
 		elze = else_block(parser);
 	}
 
-	return ast_new_if(cond, b, elze);
+	return ast_new_if(index, cond, b, elze);
 }
 
-// expr : if | bin_op SEMI ;
+// expr : if | bin_op SEMI | dump SEMI;
 ast_node_T* expr(parser_T* parser) {
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T* child;
 
 	if (token->type == T_IF) {
 		child = if_block(parser);
+	} else if (token->type == T_DUMP) {
+		child = dump(parser);
+		consume(parser);
 	} else {
 		child = bin_op(parser);
 		consume(parser);

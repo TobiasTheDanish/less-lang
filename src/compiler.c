@@ -17,6 +17,12 @@ compiler_T* compiler_new(ast_node_T* program, char* output_file) {
 	return c;
 }
 
+void compile_dump(compiler_T* c, ast_node_T* node) {
+	append_file(c->file, "    ; -- dump --\n");
+	append_file(c->file, "    pop rdi\n");
+	append_file(c->file, "    call  _dump\n");
+}
+
 void compile_op(compiler_T* c, ast_node_T* node) {
 	ast_op_T* op = (ast_op_T*) node;
 
@@ -205,19 +211,22 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 		case AST_IF:
 			compile_if(c, expr->child);
 			break;
+		case AST_DUMP:
+			compile_dump(c, expr->child);
+			break;
 
-        case AST_ELSE:
-        case AST_BLOCK:
-        case AST_EXPR:
-        case AST_OP:
-        case AST_VALUE:
-        case AST_NO_OP:
+		case AST_ELSE:
+		case AST_BLOCK:
+		case AST_EXPR:
+		case AST_OP:
+		case AST_VALUE:
+		case AST_NO_OP:
 		case AST_PROGRAM:
 		case AST_CONDITIONAL:
 		case AST_COND_OP:
 			printf("Unexpected node in expr. Found: %s, expects: %s or %s.\n", ast_get_name(expr->child->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_IF));
 			exit(1);
-        }
+	}
 }
 
 
@@ -230,9 +239,6 @@ void compile_program(compiler_T* c, ast_node_T* node) {
 
 		for (size_t i = 0; i < program->count; i++) {
 			compile_expr(c, program->expressions[i]);
-			append_file(c->file, "    ; -- dump --\n");
-			append_file(c->file, "    pop rdi\n");
-			append_file(c->file, "    call  _dump\n");
 			//printf("Compiled %zu expressions out of %zu\n", i, block->count);
 		}
 	} else {

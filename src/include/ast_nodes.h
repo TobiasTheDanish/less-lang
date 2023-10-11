@@ -14,6 +14,7 @@ typedef enum AST_NODE_E {
 	AST_BIN_OP,
 	AST_OP,
 	AST_VALUE,
+	AST_DUMP,
 	AST_NO_OP,
 } ast_node_E;
 

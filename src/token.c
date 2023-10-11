@@ -17,6 +17,7 @@ char* token_names[] = {
 	"If",
 	"Else",
 	"Syscall",
+	"Dump",
 	"EOF"
 };
 
