@@ -1,5 +1,7 @@
 #include "include/compiler.h"
+#include "include/ast_nodes.h"
 #include "include/file_util.h"
+#include "include/symbol_table.h"
 #include "include/token.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -91,7 +93,19 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 			break;
 
 		case T_IDENT:
-			printf("[compile_value]: Identifiers currently not implemented for compilation.\n");
+			append_file(c->file, "    ; -- push ");
+			append_file(c->file, value->t->value);
+			append_file(c->file, "--\n");
+
+			symbol_T* sym = symbol_table_get(c->s_table, value->t->value);
+
+			append_file(c->file, "    push ");
+			append_file(c->file, sym->operand);
+
+			char str[20];
+			snprintf(str, 20, " [mem+%zu]\n", (sym->size * (sym->index+1)));
+			append_file(c->file, str);
+			c->stack_pointer += 1;
 			break;
 
 		default:
@@ -195,6 +209,29 @@ void compile_else(compiler_T* c, ast_node_T* node) {
 	compile_block(c, elze->block);
 }
 
+// while : WHILE conditional block ;
+void compile_while(compiler_T* c, ast_node_T* node) {
+	ast_while_T* while_node = (ast_while_T*) node;
+
+	char str[30];
+	sprintf(str, "    jmp .end_%zu\n", while_node->index);
+	append_file(c->file, str);
+
+	sprintf(str, ".W_%zu:\n", while_node->index);
+	append_file(c->file, str);
+
+	compile_block(c, while_node->block);
+
+	sprintf(str, ".end_%zu:\n", while_node->index);
+	append_file(c->file, str);
+
+	compile_conditional(c, while_node->cond);
+	append_file(c->file, "    test al, al\n");
+
+	sprintf(str, "    jnz .W_%zu\n", while_node->index);
+	append_file(c->file, str);
+}
+
 void compile_if(compiler_T* c, ast_node_T* node) {
 	ast_if_T* if_node = (ast_if_T*) node;
 
@@ -225,6 +262,41 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 	append_file(c->file, str);
 }
 
+// assign : ID ASSIGN (value | bin_op) ;
+void compile_assign(compiler_T* c, ast_node_T* node) {
+	ast_assign_T* a = (ast_assign_T*) node;
+	symbol_T* sym = symbol_table_get(c->s_table, a->ident->value);
+	if (sym == NULL) {
+		printf("Uninitialized symbol '%s' used in compile_assign\n", token_get_name(a->ident->type));
+		exit(1);
+	}
+
+	if (a->value->type == AST_VALUE) {
+		compile_value(c, a->value);
+	} else if (a->value->type == AST_BIN_OP) {
+		compile_bin_op(c, a->value);
+	} else {
+		printf("Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
+		exit(1);
+	}
+
+	char str[20];
+	append_file(c->file, "    pop ");
+	append_file(c->file, sym->operand);
+	append_file(c->file, " [mem+");
+
+	snprintf(str, 20, "%zu]\n", (sym->size * (sym->index+1)));
+	append_file(c->file, str);
+
+}
+
+// var_decl : LET assign SEMI ;
+void compile_var_decl(compiler_T* c, ast_node_T* node) {
+	ast_var_decl_T* decl = (ast_var_decl_T*) node;
+
+	compile_assign(c, decl->assign);
+}
+
 // expr : if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
 void compile_expr(compiler_T* c, ast_node_T* node) {
 	//printf("compile_expr\n");
@@ -241,8 +313,13 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 			compile_dump(c, expr->child);
 			break;
 		case AST_VAR_DECL:
+			compile_var_decl(c, expr->child);
+			break;
 		case AST_ASSIGN:
+			compile_assign(c, expr->child);
+			break;
 		case AST_WHILE:
+			compile_while(c, expr->child);
 			break;
 
 		case AST_ELSE:
@@ -254,7 +331,7 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 		case AST_PROGRAM:
 		case AST_CONDITIONAL:
 		case AST_COND_OP:
-			printf("Unexpected node in expr. Found: %s, expects: %s or %s.\n", ast_get_name(expr->child->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_IF));
+			printf("Unexpected node in expr, found: %s.\n", ast_get_name(expr->child->type));
 			exit(1);
 	}
 }
@@ -320,7 +397,7 @@ void compile(compiler_T* c) {
 	append_file(c->file, "    mov     rbp, rsp\n");
 	append_file(c->file, "    sub     rsp, ");
 	char str[12];
-	snprintf(str, 12, "%zu\n", (c->s_table->count * 8));
+	snprintf(str, 12, "%zu\n", ((c->s_table->count + 1) * 8));
 	append_file(c->file, str);
 
 	compile_program(c, c->program);
@@ -329,6 +406,9 @@ void compile(compiler_T* c) {
 	append_file(c->file, "    mov rdi, 0\n");
 	append_file(c->file, "    mov rax, 60\n");
 	append_file(c->file, "    syscall\n");
+
+	append_file(c->file, "segment .bss\n");
+	append_file(c->file, "    mem: resb 64000\n");
 
 	printf("Compilation finished\n");
 }

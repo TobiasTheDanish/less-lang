@@ -4,6 +4,7 @@
 #include <stddef.h>
 typedef struct SYMBOL_STRUCT {
 	char* name;
+	char* operand;
 	size_t size;
 	size_t index;
 } symbol_T;

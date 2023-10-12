@@ -1,5 +1,4 @@
 #include "include/symbol_table.h"
-#include "include/symbol.h"
 #include <stdlib.h>
 #include <string.h>
 

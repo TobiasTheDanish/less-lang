@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define SYMBOL_SIZE 8
+
 ast_node_T* expr(parser_T* parser);
 
 parser_T* parser_new(lexer_T* lexer, size_t t_count) {
@@ -209,8 +211,8 @@ ast_node_T* if_block(parser_T* parser) {
 
 // assign : ID ASSIGN (value | bin_op) ;
 ast_node_T* assign(parser_T* parser) {
-	token_T ident = *parser->tokens[parser->t_index];
-	if (symbol_table_contains(parser->s_table, ident.value)) {
+	token_T* ident = parser->tokens[parser->t_index];
+	if (symbol_table_contains(parser->s_table, ident->value)) {
 		consume(parser);
 		consume(parser);
 		ast_node_T* v;
@@ -220,9 +222,9 @@ ast_node_T* assign(parser_T* parser) {
 			v = value(parser);
 		}
 
-		return ast_new_assign(&ident, v);
+		return ast_new_assign(ident, v);
 	} else {
-		printf("Use of '%s', before declaration.\n", ident.value);
+		printf("Use of '%s', before declaration.\n", ident->value);
 		exit(1);
 	}
 
@@ -233,7 +235,7 @@ ast_node_T* var_decl(parser_T* parser) {
 	consume(parser);
 	if (!symbol_table_contains(parser->s_table, parser->tokens[parser->t_index]->value)) {
 		char* name = parser->tokens[parser->t_index]->value;
-		symbol_T* s = symbol_new(name, 4);
+		symbol_T* s = symbol_new(name, SYMBOL_SIZE);
 
 		symbol_table_put(parser->s_table, s);
 		ast_node_T* a = assign(parser);
