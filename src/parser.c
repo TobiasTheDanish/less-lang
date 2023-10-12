@@ -268,7 +268,10 @@ ast_node_T* expr(parser_T* parser) {
 			child = bin_op(parser);
 			consume(parser);
 		}
-	} else {
+	} else if (token->type == T_INTEGER) {
+		child = bin_op(parser);
+		consume(parser);
+	}else {
 		printf("Invalid token type in expression. Found: %s.\n", token_get_name(token->type));
 		exit(1);
 	}
