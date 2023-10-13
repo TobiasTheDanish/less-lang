@@ -20,15 +20,6 @@ compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, char* out
 	return c;
 }
 
-void compile_dump(compiler_T* c, ast_node_T* node) {
-	if (c->stack_pointer < 1) {
-		printf("Stack pointer to small for dump operation.\n");
-		exit(1);
-	}
-	append_file(c->file, "    ; -- dump --\n");
-	append_file(c->file, "    pop rdi\n");
-	append_file(c->file, "    call  _dump\n");
-}
 
 void compile_op(compiler_T* c, ast_node_T* node) {
 	ast_op_T* op = (ast_op_T*) node;
@@ -132,6 +123,33 @@ void compile_bin_op(compiler_T* c, ast_node_T* node) {
 
 	compile_value(c, bin_op->lhs);
 	compile_op(c, bin_op->op);
+}
+
+void compile_dump(compiler_T* c, ast_node_T* node) {
+	ast_dump_T* dump = (ast_dump_T*) node;
+
+	switch (dump->value->type) {
+		case AST_BIN_OP:
+			compile_bin_op(c, dump->value);
+			break;
+
+		case AST_VALUE:
+			compile_value(c, dump->value);
+			break;
+
+		default:
+			printf("Unexpected node in dump. Found: %s, expects: %s or %s.\n", ast_get_name(dump->value->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_VALUE));
+			exit(1);
+	}
+
+	if (c->stack_pointer < 1) {
+		printf("Stack pointer to small for dump operation.\n");
+		exit(1);
+	}
+	
+	append_file(c->file, "    ; -- dump --\n");
+	append_file(c->file, "    pop rdi\n");
+	append_file(c->file, "    call  _dump\n");
 }
 
 void compile_cond_op(compiler_T* c, ast_node_T* node) {

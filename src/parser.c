@@ -33,12 +33,6 @@ void consume(parser_T* parser) {
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
 }
 
-// dump: DUMP;
-ast_node_T* dump(parser_T* parser) {
-	consume(parser);
-	return ast_new(AST_DUMP);
-}
-
 // value: (ID | INT);
 ast_node_T* value(parser_T* parser) {
 	ast_node_T* res;
@@ -109,6 +103,19 @@ ast_node_T* bin_op(parser_T* parser) {
 	}
 
 	return ast_new_bin_op(lhs, operation, rhs);
+}
+
+// dump: DUMP (bin_op | value);
+ast_node_T* dump(parser_T* parser) {
+	consume(parser);
+	ast_node_T* val;
+	if (token_is_op(parser->tokens[(parser->t_index+1) % parser->t_count])) {
+		val = bin_op(parser);
+	} else {
+		val = value(parser);
+	}
+
+	return ast_new_dump(val);
 }
 
 // cond_op : (EQUALS | LESS | GREATER);

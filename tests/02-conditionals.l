@@ -1,11 +1,13 @@
-if 34 + 35 == 69 {
-	500 - 20;
+let cond = 34 + 34;
+let res = 0;
+if cond == 69 {
+	res = 500 - 20;
 } else {
-	if 34 + 34 == 69 {
-		500 - 200;
+	if cond == 69 {
+		res = 500 - 200;
 	} else {
-		207 / 3;
+		res = 207 / 3;
 	}
 }
 
-dump;
+dump res;

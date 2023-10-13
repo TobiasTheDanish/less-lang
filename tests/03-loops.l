@@ -1,8 +1,7 @@
-let i = 0;
+let i = 1;
 let j = 0;
 while i < 11 {
-	j = j + i * i;
-	j + 0;
-	dump;
+	j = i * i;
+	dump j;
 	i = i + 1;
 }

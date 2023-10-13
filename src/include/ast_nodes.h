@@ -93,6 +93,11 @@ typedef struct AST_NODE_BIN_OP {
 	ast_node_T* rhs;
 } ast_bin_op_T;
 
+typedef struct AST_NODE_DUMP {
+	ast_node_T base;
+	ast_node_T* value;
+} ast_dump_T;
+
 typedef struct AST_NODE_OP {
 	ast_node_T base;
 	token_T* t;
@@ -117,6 +122,7 @@ ast_node_T* ast_new_cond_op(token_T* t);
 ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs);
 ast_node_T* ast_new_op(token_T* t);
 ast_node_T* ast_new_value(token_T* t);
+ast_node_T* ast_new_dump(ast_node_T* value);
 
 char* ast_get_name(ast_node_E type);
 #endif // !AST_NODES_H

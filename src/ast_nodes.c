@@ -141,6 +141,17 @@ ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs) {
 	return (ast_node_T*) bin_op;
 }
 
+ast_node_T* ast_new_dump(ast_node_T* value) {
+	ast_node_T* base = malloc(sizeof(ast_node_T));
+	base->type = AST_DUMP;
+
+	ast_dump_T* dump = malloc(sizeof(ast_dump_T));
+	dump->base = *base;
+	dump->value = value;
+
+	return (ast_node_T*) dump;
+}
+
 ast_node_T* ast_new_op(token_T* t) {
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_OP;
