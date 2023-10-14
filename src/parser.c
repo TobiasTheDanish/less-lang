@@ -33,12 +33,21 @@ void consume(parser_T* parser) {
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
 }
 
-// value: (ID | INT);
+// value: (POINTER | ID | INT);
 ast_node_T* value(parser_T* parser) {
 	ast_node_T* res;
 	token_T* token = parser->tokens[parser->t_index];
 
 	switch (token->type) {
+		case T_POINTER: 
+			if (symbol_table_contains(parser->s_table, token->value)) {
+				res = ast_new_value(token);
+				consume(parser);
+				break;
+			} else {
+				printf("Use of '%s', before declaration.\n", token->value);
+				exit(1);
+			}
 		case T_IDENT:
 			if (symbol_table_contains(parser->s_table, token->value)) {
 				res = ast_new_value(token);

@@ -32,23 +32,23 @@ void compile_op(compiler_T* c, ast_node_T* node) {
         case T_PLUS:
 			append_file(c->file, "    ; -- plus --\n");
 			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    pop rbx\n");
-			append_file(c->file, "    add rax, rbx\n");
+			append_file(c->file, "    add rax, [rsp]\n");
+			append_file(c->file, "    add rsp, 8\n");
 			append_file(c->file, "    push rax\n");
 
 			break;
         case T_MINUS:
 			append_file(c->file, "    ; -- minus --\n");
 			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    pop rbx\n");
-			append_file(c->file, "    sub rax, rbx\n");
+			append_file(c->file, "    sub rax, [rsp]\n");
+			append_file(c->file, "    add rsp, 8\n");
 			append_file(c->file, "    push rax\n");
 			break;
         case T_MULTIPLY:
 			append_file(c->file, "    ; -- multipy --\n");
 			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    pop rbx\n");
-			append_file(c->file, "    imul rax, rbx\n");
+			append_file(c->file, "    imul rax, [rsp]\n");
+			append_file(c->file, "    add rsp, 8\n");
 			append_file(c->file, "    push rax\n");
 			break;
         case T_DIVIDE:
@@ -98,6 +98,24 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 			append_file(c->file, str);
 			c->stack_pointer += 1;
 			break;
+
+		case T_POINTER:
+			{
+				append_file(c->file, "    ; -- push ");
+				append_file(c->file, value->t->value);
+				append_file(c->file, "--\n");
+
+				symbol_T* sym = symbol_table_get(c->s_table, value->t->value);
+
+				append_file(c->file, "    push ");
+				append_file(c->file, sym->operand);
+
+				char str[20];
+				snprintf(str, 20, " mem+%zu\n", (sym->size * (sym->index+1)));
+				append_file(c->file, str);
+				c->stack_pointer += 1;
+				break;
+			}
 
 		default:
 			printf("Unreachable code in compile_value\n");

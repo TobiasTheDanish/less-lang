@@ -90,6 +90,21 @@ token_T* read_if(lexer_T* lexer) {
 	return token_new(T_IF, str);
 }
 
+token_T* read_pointer(lexer_T* lexer) {
+	advance(lexer);
+	char* value = calloc(1, sizeof(char));
+	size_t i = 0;
+
+	while (isalnum(lexer->c)) {
+		value[i++] = lexer->c;
+
+		value = realloc(value, (i + 1) * sizeof(char));
+		advance(lexer);
+	}
+
+	return token_new(T_POINTER, value);
+}
+
 token_T* advance_with_token(lexer_T* lexer, token_E type) {
 	char* val = calloc(2, sizeof(char));
 	val[0] = lexer->c;
@@ -106,6 +121,10 @@ token_T* lexer_next_token(lexer_T* lexer) {
 	if (lexer->c != '\0' && lexer->c != -1) {
 		if (isspace(lexer->c)) {
 			skip_whitespace(lexer);
+		}
+
+		if (lexer->c == '&') {
+			return read_pointer(lexer);
 		}
 
 		if (isalpha(lexer->c)) {
