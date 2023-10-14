@@ -255,12 +255,57 @@ ast_node_T* var_decl(parser_T* parser) {
 
 }
 
-// expr : if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
+// param : (bin_op | value);
+ast_node_T* param(parser_T* parser) {
+	token_T* current = parser->tokens[parser->t_index];
+	token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
+	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER) { 
+		if (token_is_op(next)) {
+			return bin_op(parser);
+		} else {
+			return value(parser);
+		}
+	} else {
+		printf("Unexpected token in param, found: %s.\n", token_get_name(current->type));
+		exit(1);
+	}
+}
+
+// syscall : LPAREN (param (COMMA param)*)? RPAREN;
+ast_node_T* syscall(parser_T* parser) {
+	consume(parser);
+	if (parser->tokens[parser->t_index]->type == T_LPAREN) {
+		consume(parser);
+
+		ast_node_T** params = malloc(sizeof(ast_node_T*));
+		size_t count = 0;
+
+		while (parser->tokens[parser->t_index]->type != T_RPAREN) {
+			printf("current param: (%s, %s)\n", token_get_name(parser->tokens[parser->t_index]->type), parser->tokens[parser->t_index]->value);
+			params[count++] = param(parser);
+			params = realloc(params, (count + 1) * sizeof(ast_node_T*));
+			if (parser->tokens[parser->t_index]->type == T_COMMA) {
+				consume(parser);
+			}
+		}
+		consume(parser);
+
+		return ast_new_syscall(params, count);
+	}
+
+	printf("Expected list of params for syscall.\n");
+	exit(1);
+}
+
+// expr : syscall SEMI | if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
 ast_node_T* expr(parser_T* parser) {
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T* child;
 
-	if (token->type == T_IF) {
+	if (token->type == T_SYSCALL) {
+		child = syscall(parser);
+		consume(parser);
+	} else if (token->type == T_IF) {
 		child = if_block(parser);
 	} else if (token->type == T_WHILE) {
 		child = while_block(parser);

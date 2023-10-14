@@ -51,7 +51,10 @@ token_T* read_ident(lexer_T* lexer) {
 		return token_new(T_LET, value);
 	} else if (strcmp("while", value) == 0) {
 		return token_new(T_WHILE, value);
+	} else if (strcmp("syscall", value) == 0) {
+		return token_new(T_SYSCALL, value);
 	}
+
 
 	return token_new(T_IDENT, value);
 }
@@ -121,6 +124,9 @@ token_T* lexer_next_token(lexer_T* lexer) {
 			case ';':
 				return advance_with_token(lexer, T_SEMI);
 
+			case ',':
+				return advance_with_token(lexer, T_COMMA);
+
 			case '+':
 				return advance_with_token(lexer, T_PLUS);
 
@@ -138,6 +144,12 @@ token_T* lexer_next_token(lexer_T* lexer) {
 
 			case '}':
 				return advance_with_token(lexer, T_RCURLY);
+
+			case '(':
+				return advance_with_token(lexer, T_LPAREN);
+
+			case ')':
+				return advance_with_token(lexer, T_RPAREN);
 
 			case '=':
 				{

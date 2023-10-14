@@ -315,12 +315,82 @@ void compile_var_decl(compiler_T* c, ast_node_T* node) {
 	compile_assign(c, decl->assign);
 }
 
-// expr : if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
+// param : (bin_op | value);
+void compile_param(compiler_T* c, ast_node_T* node) {
+	switch (node->type) {
+
+        case AST_BIN_OP:
+			compile_bin_op(c, node);
+			break;
+        case AST_VALUE:
+			compile_value(c, node);
+			break;
+
+		default:
+			printf("Invalid node type in compile_param. Found: %s\n", ast_get_name(node->type));
+			exit(1);
+	}
+}
+
+// syscall : LPAREN (param (COMMA param)*)? RPAREN;
+void compile_syscall(compiler_T* c, ast_node_T* node) {
+	ast_syscall_T* syscall = (ast_syscall_T*) node;
+
+	if (syscall->count < 1) {
+		printf("Not enough params for syscall\n");
+		exit(1);
+	} else if (syscall->count > 7) {
+		printf("Too many params for syscall\n");
+		exit(1);
+	}
+
+	append_file(c->file, "    ; -- syscall --\n");
+
+	if (syscall->count > 1) {
+		compile_param(c, syscall->params[1]);
+		append_file(c->file, "    pop rdi\n");
+	}
+
+	if (syscall->count > 2) {
+		compile_param(c, syscall->params[2]);
+		append_file(c->file, "    pop rsi\n");
+	}
+
+	if (syscall->count > 3) {
+		compile_param(c, syscall->params[3]);
+		append_file(c->file, "    pop rdx\n");
+	}
+
+	if (syscall->count > 4) {
+		compile_param(c, syscall->params[4]);
+		append_file(c->file, "    pop r10\n");
+	}
+	
+	if (syscall->count > 5) {
+		compile_param(c, syscall->params[5]);
+		append_file(c->file, "    pop r8\n");
+	}
+
+	if (syscall->count > 6) {
+		compile_param(c, syscall->params[6]);
+		append_file(c->file, "    pop r9\n");
+	}
+
+	compile_param(c, syscall->params[0]);
+	append_file(c->file, "    pop rax\n");
+
+	append_file(c->file, "    syscall\n");
+}
+
+// expr : syscall SEMI | if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
 void compile_expr(compiler_T* c, ast_node_T* node) {
 	//printf("compile_expr\n");
 	ast_expr_T* expr = (ast_expr_T*) node;
 
 	switch (expr->child->type) {
+		case AST_SYSCALL:
+			compile_syscall(c, expr->child);
+			break;
 		case AST_BIN_OP:
 			compile_bin_op(c, expr->child);
 			break;

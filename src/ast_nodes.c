@@ -43,6 +43,18 @@ ast_node_T* ast_new_expr(ast_node_T* child) {
 	return (ast_node_T*) expr;
 }
 
+ast_node_T* ast_new_syscall(ast_node_T** params, size_t count) {
+	ast_node_T* base = malloc(sizeof(ast_node_T));
+	base->type = AST_SYSCALL;
+
+	ast_syscall_T* syscall = malloc(sizeof(ast_syscall_T));
+	syscall->base = *base;
+	syscall->params = params;
+	syscall->count = count;
+
+	return (ast_node_T*) syscall;
+}
+
 ast_node_T* ast_new_var_decl(ast_node_T* assign) {
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_VAR_DECL;
@@ -177,6 +189,7 @@ char* ast_get_name(ast_node_E type) {
 		"Program",
 		"Block", 
 		"Expression", 
+		"Syscall", 
 		"Variable declaration", 
 		"Assign", 
 		"While", 
