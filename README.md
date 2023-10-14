@@ -1,7 +1,7 @@
 # Less programming language #
 
 A toy language developed for fun and as a way to learn about building compilers.
-Less only supports linux, and will probably only support linux.
+Less only supports linux, and will probably only support linux (x86_64 to be more precise).
 
 ## Usage
 
@@ -35,7 +35,25 @@ C-style syntax
 
 - [x] Basic integer arithmetic
 - [x] Conditionals (if-else statements)
-- [ ] Loops
-- [ ] Memory access and storage
-- [ ] Support for linux syscalls
+- [x] Loops
+- [x] Memory access and storage (Primitives)
+- [x] Support for linux syscalls
+- [ ] String literals
+- [ ] Arrays
 
+## Documentation
+
+#### Variables
+A variable is declared with the 'let' keyword, and (for now) has to be assigned a value at declaration, example:
+```
+let fortyTwo = 42;
+```
+
+#### Arithmetic
+Less supports basic arithmetic, '+', '-', '*', '/'. However, the mathmatical order of precedence i currently not followed.
+```
+let fortyTwo = 22 + 20;
+
+//Will give set wrong to 64:
+let wrong = 2 * 10 + 22;
+```
