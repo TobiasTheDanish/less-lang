@@ -290,7 +290,7 @@ ast_node_T* syscall(parser_T* parser) {
 		size_t count = 0;
 
 		while (parser->tokens[parser->t_index]->type != T_RPAREN) {
-			printf("current param: (%s, %s)\n", token_get_name(parser->tokens[parser->t_index]->type), parser->tokens[parser->t_index]->value);
+			//printf("current param: (%s, %s)\n", token_get_name(parser->tokens[parser->t_index]->type), parser->tokens[parser->t_index]->value);
 			params[count++] = param(parser);
 			params = realloc(params, (count + 1) * sizeof(ast_node_T*));
 			if (parser->tokens[parser->t_index]->type == T_COMMA) {

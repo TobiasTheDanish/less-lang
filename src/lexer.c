@@ -74,10 +74,29 @@ token_T* read_number(lexer_T* lexer) {
 
 }
 
+char peek(lexer_T* lexer) {
+	return lexer->content[lexer->i + 1];
+}
+
 void skip_whitespace(lexer_T* lexer) {
 	while (isspace(lexer->c)) {
 		advance(lexer);
 	}
+}
+
+void skip_singleline_comment(lexer_T* lexer) {
+	while (lexer->c != '\n') {
+		advance(lexer);
+	}
+	advance(lexer);
+}
+
+void skip_multiline_comment(lexer_T* lexer) {
+	while (!(lexer->c == '*' && peek(lexer) == '/')) {
+		advance(lexer);
+	}
+	advance(lexer);
+	advance(lexer);
 }
 
 token_T* read_if(lexer_T* lexer) {
@@ -156,7 +175,20 @@ token_T* lexer_next_token(lexer_T* lexer) {
 				return advance_with_token(lexer, T_MULTIPLY);
 
 			case '/':
-				return advance_with_token(lexer, T_DIVIDE);
+				{
+					char next = peek(lexer);
+					switch (next) {
+						case '/':
+							skip_singleline_comment(lexer);
+							break;
+						case '*':
+							skip_multiline_comment(lexer);
+							break;
+						default:
+							return advance_with_token(lexer, T_DIVIDE);
+					}
+					break;
+				}
 
 			case '{':
 				return advance_with_token(lexer, T_LCURLY);
