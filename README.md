@@ -3,6 +3,12 @@
 A toy language developed for fun and as a way to learn about building compilers.
 Less only supports linux, and will probably only support linux (x86_64 to be more precise).
 
+
+
+---
+
+
+
 ## Usage
 
 To compile and assemble a Less file (suffixed '.l'), for now a shell script is needed.
@@ -23,13 +29,31 @@ To see the usage of the executable, simply execute the command with no arguments
 ./less
 ```
 
+
+
+---
+
+
+
 ## Dependencies
 
 The above-mentioned command relies on nasm to do the assembling. [Here's a link to the official website](https://www.nasm.us/).
 
+
+
+---
+
+
+
 ## Syntax
 
 C-style syntax
+
+
+
+---
+
+
 
 ## Features
 
@@ -41,9 +65,15 @@ C-style syntax
 - [x] String literals
 - [ ] Arrays
 
+
+
+---
+
+
+
 ## Documentation
 
-#### Variables
+### Variables
 
 A variable is declared with the 'let' keyword, and (for now) has to be assigned a value at declaration, example:
 
@@ -51,7 +81,13 @@ A variable is declared with the 'let' keyword, and (for now) has to be assigned 
 let fortyTwo = 42;
 ```
 
-#### Arithmetic
+
+
+---
+
+
+
+### Arithmetic
 
 Less supports basic arithmetic, '+', '-', '*', '/'. However, the mathematical order of precedence i currently not followed.
 
@@ -62,7 +98,12 @@ let fortyTwo = 22 + 20;
 let wrong = 2 * 10 + 22;
 ```
 
-#### Comments
+
+---
+
+
+
+### Comments
 
 Less supports two types of comments, single and multi line comments.
 ```go
@@ -77,12 +118,25 @@ Less supports two types of comments, single and multi line comments.
 */
 ```
 
-#### Linux syscalls
+
+
+---
+
+
+
+### Linux syscalls
 
 Linux syscalls are support. You can trigger a syscall via: ` syscall('params');`
+
 Follow this [link](https://chromium.googlesource.com/chromiumos/docs/+/master/constants/syscalls.md#x86_64-64_bit) for a table over the different linux syscalls
 
-#### String literals
+
+
+---
+
+
+
+### String literals
 
 String literals are denoted by double quotes.
 
@@ -109,7 +163,7 @@ An example program using string literals with some of the different escape chara
 let str = "\t\"Hello \vworld!\"\n";
 
 // the next line writes the content of the 'str' variable to stdout
+syscall(1, 1, str, 17);
 // syscall 1 is the write syscall
 // fd 1 is stdout
-syscall(1, 1, str, 17);
 ```
