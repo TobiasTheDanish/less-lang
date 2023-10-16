@@ -15,6 +15,7 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 	parser->lexer = lexer;
 	parser->if_count = 0;
 	parser->s_table = symbol_table_new();
+	parser->data_table = data_table_new();
 	parser->t_count = t_count;
 	parser->t_index = 0;
 	parser->tokens = malloc(t_count * sizeof(token_T*));
@@ -33,7 +34,7 @@ void consume(parser_T* parser) {
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
 }
 
-// value: (POINTER | ID | INT);
+// value: (POINTER | ID | INT | STRING);
 ast_node_T* value(parser_T* parser) {
 	ast_node_T* res;
 	token_T* token = parser->tokens[parser->t_index];
@@ -58,6 +59,11 @@ ast_node_T* value(parser_T* parser) {
 				exit(1);
 			}
 		case T_INTEGER:
+			res = ast_new_value(token);
+			consume(parser);
+			break;
+		case T_STRING:
+			data_table_put(parser->data_table, token);
 			res = ast_new_value(token);
 			consume(parser);
 			break;
@@ -229,6 +235,7 @@ ast_node_T* if_block(parser_T* parser) {
 ast_node_T* assign(parser_T* parser) {
 	token_T* ident = parser->tokens[parser->t_index];
 	if (symbol_table_contains(parser->s_table, ident->value)) {
+		symbol_T* symbol = symbol_table_get(parser->s_table, ident->value);
 		consume(parser);
 		consume(parser);
 		ast_node_T* v;
@@ -268,7 +275,7 @@ ast_node_T* var_decl(parser_T* parser) {
 ast_node_T* param(parser_T* parser) {
 	token_T* current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
-	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER) { 
+	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING) { 
 		if (token_is_op(next)) {
 			return bin_op(parser);
 		} else {

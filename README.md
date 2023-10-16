@@ -126,7 +126,7 @@ Less supports two types of comments, single and multi line comments.
 
 ### Linux syscalls
 
-Linux syscalls are support. You can trigger a syscall via: ` syscall('params');`
+Linux syscalls are support. You can trigger a syscall via:  `syscall('params');`
 
 Follow this [link](https://chromium.googlesource.com/chromiumos/docs/+/master/constants/syscalls.md#x86_64-64_bit) for a table over the different linux syscalls
 

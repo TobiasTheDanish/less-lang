@@ -39,3 +39,4 @@ bool symbol_table_contains(symbol_table_T* table, char* name) {
 
 	return false;
 }
+

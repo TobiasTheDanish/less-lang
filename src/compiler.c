@@ -1,6 +1,7 @@
 #include "include/compiler.h"
 #include "include/ast_nodes.h"
 #include "include/file_util.h"
+#include "include/string_util.h"
 #include "include/symbol_table.h"
 #include "include/token.h"
 #include <stdio.h>
@@ -10,11 +11,12 @@
 
 void compile_expr(compiler_T* c, ast_node_T* node);
 
-compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, char* output_file) {
+compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, data_table_T* data_table, char* output_file) {
 	compiler_T* c = malloc(sizeof(compiler_T));
 	c->program = program;
 	c->file = open_file_m(output_file, "w");
 	c->s_table = s_table;
+	c->data_table = data_table;
 	c->stack_pointer = 0;
 
 	return c;
@@ -112,6 +114,21 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 
 				char str[20];
 				snprintf(str, 20, " mem+%zu\n", (sym->size * (sym->index+1)));
+				append_file(c->file, str);
+				c->stack_pointer += 1;
+				break;
+			}
+
+		case T_STRING:
+			{
+				append_file(c->file, "    ; -- push ");
+				append_file(c->file, value->t->value);
+				append_file(c->file, "--\n");
+
+				size_t index = data_table_get_index(c->data_table, value->t->value);
+				append_file(c->file, "    push ");
+				char str[20];
+				snprintf(str, 20, "str%zu\n", index);
 				append_file(c->file, str);
 				c->stack_pointer += 1;
 				break;
@@ -515,6 +532,22 @@ void compile(compiler_T* c) {
 
 	append_file(c->file, "segment .bss\n");
 	append_file(c->file, "    mem: resb 64000\n");
+
+	append_file(c->file, "segment .data\n");
+	for (size_t i = 0; i < c->data_table->count; i++) {
+		token_T* token = c->data_table->data[i];
+		decode_escaped_characters(token->value);
+		char s[25];
+		snprintf(s, 25, "    str%zu: db ", i);
+		append_file(c->file, s);
+		for (int j = 0; token->value[j] != '\0'; j++) {
+			char ch[6];
+			snprintf(ch, 6, "%d, ", token->value[j]);
+			append_file(c->file, ch);
+		}
+		append_file(c->file, "0\n");
+		
+	}
 
 	printf("Compilation finished\n");
 }

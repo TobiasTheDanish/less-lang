@@ -5,6 +5,7 @@
 
 typedef enum TOKEN_E {
 	T_INTEGER,
+	T_STRING,
 	T_PLUS,
 	T_MINUS,
 	T_MULTIPLY,
