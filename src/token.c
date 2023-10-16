@@ -8,6 +8,7 @@ char* token_names[] = {
 	"Minus",
 	"Multiply",
 	"Divide",
+	"Modulus",
 	"Equals",
 	"Less than",
 	"Greater than",
@@ -43,5 +44,5 @@ char* token_get_name(token_E type) {
 }
 
 bool token_is_op(token_T* token) {
-	return token->type == T_PLUS || token->type == T_MINUS || token->type == T_MULTIPLY || token->type == T_DIVIDE;
+	return token->type == T_PLUS || token->type == T_MINUS || token->type == T_MULTIPLY || token->type == T_DIVIDE || token->type == T_MODULUS;
 }

@@ -215,6 +215,9 @@ token_T* lexer_next_token(lexer_T* lexer) {
 					break;
 				}
 
+			case '%':
+				return advance_with_token(lexer, T_MODULUS);
+
 			case '{':
 				return advance_with_token(lexer, T_LCURLY);
 
@@ -245,7 +248,7 @@ token_T* lexer_next_token(lexer_T* lexer) {
 				return advance_with_token(lexer, T_GREATER);
 		
 			default:
-				printf("Unexpected character when lexing: '%d'.\n", lexer->c);
+				printf("Unexpected character when lexing: '%c'.\n", lexer->c);
 				return token_new(T_EOF, "EOF");
 		}
 	}

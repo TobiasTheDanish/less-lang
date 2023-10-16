@@ -10,6 +10,7 @@ typedef enum TOKEN_E {
 	T_MINUS,
 	T_MULTIPLY,
 	T_DIVIDE,
+	T_MODULUS,
 	T_EQUALS,
 	T_LESS,
 	T_GREATER,

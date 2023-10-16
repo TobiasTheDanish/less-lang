@@ -61,6 +61,14 @@ void compile_op(compiler_T* c, ast_node_T* node) {
 			append_file(c->file, "    idiv rbx\n");
 			append_file(c->file, "    push rax\n");
 			break;
+        case T_MODULUS:
+			append_file(c->file, "    ; -- modulus --\n");
+			append_file(c->file, "    pop rax\n");
+			append_file(c->file, "    cqo\n");
+			append_file(c->file, "    pop rbx\n");
+			append_file(c->file, "    idiv rbx\n");
+			append_file(c->file, "    push rdx\n");
+			break;
 
 		default:
 			printf("Unreachable code in compile_op");
@@ -267,7 +275,7 @@ void compile_while(compiler_T* c, ast_node_T* node) {
 	ast_while_T* while_node = (ast_while_T*) node;
 
 	char str[30];
-	sprintf(str, "    jmp .end_%zu\n", while_node->index);
+	sprintf(str, "    jmp .W_end_%zu\n", while_node->index);
 	append_file(c->file, str);
 
 	sprintf(str, ".W_%zu:\n", while_node->index);
@@ -275,7 +283,7 @@ void compile_while(compiler_T* c, ast_node_T* node) {
 
 	compile_block(c, while_node->block);
 
-	sprintf(str, ".end_%zu:\n", while_node->index);
+	sprintf(str, ".W_end_%zu:\n", while_node->index);
 	append_file(c->file, str);
 
 	compile_conditional(c, while_node->cond);

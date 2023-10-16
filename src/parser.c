@@ -86,6 +86,7 @@ ast_node_T* op(parser_T* parser) {
 		case T_MINUS:
 		case T_MULTIPLY:
 		case T_DIVIDE:
+		case T_MODULUS:
 			res = ast_new_op(token);
 			consume(parser);
 			break;
@@ -198,8 +199,7 @@ ast_node_T* block(parser_T* parser) {
 	return ast_new_block(expressions, count);
 }
 //else : ELSE block ;
-ast_node_T* else_block(parser_T* parser) {
-	size_t index = parser->if_count;
+ast_node_T* else_block(parser_T* parser, size_t index) {
 	consume(parser);
 	ast_node_T* b = block(parser);
 
@@ -218,14 +218,14 @@ ast_node_T* while_block(parser_T* parser) {
 
 // if : IF conditional block (else)? ;
 ast_node_T* if_block(parser_T* parser) {
-	size_t index = ++parser->if_count;
+	size_t index = parser->if_count++;
 	consume(parser);
 	ast_node_T* cond = conditional(parser);
 	ast_node_T* b = block(parser);
 	ast_node_T* elze = NULL;
 
 	if (parser->tokens[parser->t_index]->type == T_ELSE) {
-		elze = else_block(parser);
+		elze = else_block(parser, index);
 	}
 
 	return ast_new_if(index, cond, b, elze);
