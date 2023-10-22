@@ -1,4 +1,5 @@
 #include "include/file_util.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 file_T* open_file(char* filePath) {
@@ -29,6 +30,10 @@ file_T* open_file_m(char* filePath, char* modes) {
 	file->modes = "a+";
 
 	return file;
+}
+
+void close_file(file_T *file) {
+	fclose(file->f);
 }
 
 char* read_file(file_T* file) {

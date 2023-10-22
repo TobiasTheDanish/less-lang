@@ -12,6 +12,8 @@ typedef struct FILE_STRUCT {
 file_T* open_file(char* filePath);
 file_T* open_file_m(char* filePath, char* modes);
 
+void close_file(file_T* file);
+
 char* read_file(file_T* file);
 
 void append_file(file_T* file, char* content);

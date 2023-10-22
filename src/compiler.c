@@ -557,5 +557,7 @@ void compile(compiler_T* c) {
 		
 	}
 
+	close_file(c->file);
+
 	printf("Compilation finished\n");
 }
