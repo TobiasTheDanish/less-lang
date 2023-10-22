@@ -9,6 +9,7 @@
 #define SYMBOL_SIZE 8
 
 ast_node_T* expr(parser_T* parser);
+ast_node_T* if_block(parser_T* parser);
 
 parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 	parser_T* parser = malloc(sizeof(parser_T));
@@ -198,10 +199,24 @@ ast_node_T* block(parser_T* parser) {
 
 	return ast_new_block(expressions, count);
 }
-//else : ELSE block ;
+//else : ELSE (if | block) ;
 ast_node_T* else_block(parser_T* parser, size_t index) {
 	consume(parser);
-	ast_node_T* b = block(parser);
+	token_T* next = parser->tokens[parser->t_index];
+	ast_node_T* b;
+
+	switch (next->type) {
+		case T_IF: 
+			b = if_block(parser);
+			break;
+		case T_LCURLY:
+			b = block(parser);
+			break;
+
+		default:
+			printf("Invalid token type for else_block. Found: %s.\n", token_get_name(next->type));
+			exit(1);
+	}
 
 	return ast_new_else(index, b);
 }

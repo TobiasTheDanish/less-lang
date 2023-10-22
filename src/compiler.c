@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-
+void compile_if(compiler_T* c, ast_node_T* node);
 void compile_expr(compiler_T* c, ast_node_T* node);
 
 compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, data_table_T* data_table, char* output_file) {
@@ -267,7 +267,19 @@ void compile_else(compiler_T* c, ast_node_T* node) {
 	char str[50];
 	sprintf(str, ".else_%zu:\n", elze->index);
 	append_file(c->file, str);
-	compile_block(c, elze->block);
+	switch (elze->block->type) {
+		case AST_IF:
+			compile_if(c, elze->block);
+			break;
+		case AST_BLOCK:
+			compile_block(c, elze->block);
+			break;
+
+		default:
+			printf("Unexpected ast type for compile_else. Found: %s\n", ast_get_name(elze->block->type));
+			exit(1);
+
+	}
 }
 
 // while : WHILE conditional block ;
