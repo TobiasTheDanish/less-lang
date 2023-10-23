@@ -1,6 +1,7 @@
 #ifndef AST_NODES_H
 #define AST_NODES_H
 
+#include "symbol.h"
 #include "token.h"
 #include <stddef.h>
 typedef enum AST_NODE_E {
@@ -9,6 +10,8 @@ typedef enum AST_NODE_E {
 	AST_EXPR,
 	AST_SYSCALL,
 	AST_VAR_DECL,
+	AST_FUNC_DECL,
+	AST_FUNC_CALL,
 	AST_ASSIGN,
 	AST_WHILE,
 	AST_IF,
@@ -48,6 +51,21 @@ typedef struct AST_NODE_SYSCALL {
 	ast_node_T** params;
 	size_t count;
 } ast_syscall_T;
+
+typedef struct AST_NODE_FUNC_DECL {
+	ast_node_T base;
+	token_T* ident;
+	token_T** params;
+	size_t param_count;
+	ast_node_T* block;
+} ast_func_decl_T;
+
+typedef struct AST_NODE_FUNC_CALL {
+	ast_node_T base;
+	token_T* ident;
+	ast_node_T** params;
+	size_t param_count;
+} ast_func_call_T;
 
 typedef struct AST_NODE_VAR_DECL {
 	ast_node_T base;
@@ -98,6 +116,7 @@ typedef struct AST_NODE_BIN_OP {
 	ast_node_T* lhs;
 	ast_node_T* op;
 	ast_node_T* rhs;
+	symbol_T* type;
 } ast_bin_op_T;
 
 typedef struct AST_NODE_DUMP {
@@ -113,6 +132,7 @@ typedef struct AST_NODE_OP {
 typedef struct AST_NODE_VALUE {
 	ast_node_T base;
 	token_T* t;
+	symbol_T* type;
 } ast_value_T;
 
 ast_node_T* ast_new(ast_node_E type);
@@ -120,6 +140,8 @@ ast_node_T* ast_new_program(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_block(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_expr(ast_node_T* child);
 ast_node_T* ast_new_syscall(ast_node_T** params, size_t count);
+ast_node_T* ast_new_func_decl(token_T** params, size_t param_count, ast_node_T* block);
+ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_count);
 ast_node_T* ast_new_var_decl(ast_node_T* assign);
 ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value);
 ast_node_T* ast_new_while(size_t index, ast_node_T* cond, ast_node_T* block);
@@ -127,9 +149,9 @@ ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_no
 ast_node_T* ast_new_else(size_t index, ast_node_T* block);
 ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs);
 ast_node_T* ast_new_cond_op(token_T* t);
-ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs);
+ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, symbol_T* type);
 ast_node_T* ast_new_op(token_T* t);
-ast_node_T* ast_new_value(token_T* t);
+ast_node_T* ast_new_value(token_T* t, symbol_T* type);
 ast_node_T* ast_new_dump(ast_node_T* value);
 
 char* ast_get_name(ast_node_E type);

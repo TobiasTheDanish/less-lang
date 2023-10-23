@@ -3,8 +3,10 @@
 #include "include/symbol.h"
 #include "include/symbol_table.h"
 #include "include/token.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define SYMBOL_SIZE 8
 
@@ -15,7 +17,7 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 	parser_T* parser = malloc(sizeof(parser_T));
 	parser->lexer = lexer;
 	parser->if_count = 0;
-	parser->s_table = symbol_table_new();
+	parser->s_table = symbol_table_new("global", 1, NULL);
 	parser->data_table = data_table_new();
 	parser->t_count = t_count;
 	parser->t_index = 0;
@@ -43,7 +45,9 @@ ast_node_T* value(parser_T* parser) {
 	switch (token->type) {
 		case T_POINTER: 
 			if (symbol_table_contains(parser->s_table, token->value)) {
-				res = ast_new_value(token);
+				symbol_var_T* var = (symbol_var_T*)symbol_table_get(parser->s_table, token->value);
+				printf("<%s, %s>\n", token->value, var->type->name);
+				res = ast_new_value(token, var->type);
 				consume(parser);
 				break;
 			} else {
@@ -52,7 +56,9 @@ ast_node_T* value(parser_T* parser) {
 			}
 		case T_IDENT:
 			if (symbol_table_contains(parser->s_table, token->value)) {
-				res = ast_new_value(token);
+				symbol_var_T* var = (symbol_var_T*)symbol_table_get(parser->s_table, token->value);
+				printf("<%s, %s>\n", token->value, var->type->name);
+				res = ast_new_value(token, var->type);
 				consume(parser);
 				break;
 			} else {
@@ -60,12 +66,14 @@ ast_node_T* value(parser_T* parser) {
 				exit(1);
 			}
 		case T_INTEGER:
-			res = ast_new_value(token);
+				printf("<%s, %s>\n", token->value, "int");
+			res = ast_new_value(token, symbol_table_get(parser->s_table, "int"));
 			consume(parser);
 			break;
 		case T_STRING:
 			data_table_put(parser->data_table, token);
-			res = ast_new_value(token);
+			printf("<%s, %s>\n", token->value, "string");
+			res = ast_new_value(token, symbol_table_get(parser->s_table, "string"));
 			consume(parser);
 			break;
 
@@ -103,23 +111,38 @@ ast_node_T* op(parser_T* parser) {
 
 // bin_op: value op (bin_op | value) ;
 ast_node_T* bin_op(parser_T* parser) {
-	ast_node_T* lhs = value(parser);
+	ast_value_T* lhs = (ast_value_T*) value(parser);
 	ast_node_T* operation = op(parser);
 
 	ast_node_T* rhs;
+	symbol_type_T* type;
 	token_T* current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
 
 	if ((current->type == T_INTEGER || current->type == T_IDENT) && token_is_op(next)) {
 		rhs = bin_op(parser);
+		ast_bin_op_T* b = (ast_bin_op_T*) rhs;
+		if (strcmp(lhs->type->name, b->type->name) == 0) {
+			type = (symbol_type_T*) lhs->type;
+		} else {
+			printf("Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type->name, b->type->name);
+			exit(1);
+		}
 	} else if (current->type == T_INTEGER || current->type == T_IDENT) {
 		rhs = value(parser);
+		ast_value_T* b = (ast_value_T*) rhs;
+		if (lhs->type != NULL && b->type != NULL && strcmp(lhs->type->name, b->type->name) == 0) {
+			type = (symbol_type_T*) lhs->type;
+		} else {
+			printf("Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type->name, b->type->name);
+			exit(1);
+		}
 	} else {
-		printf("Invalid token type for rhs in bin_op. Found: %s, expected an identifier, value or bin_op", token_get_name(current->type));
+		printf("Invalid token type for rhs in bin_op. Found: %s, expected an identifier, value or bin_op\n", token_get_name(current->type));
 		exit(1);
 	}
 
-	return ast_new_bin_op(lhs, operation, rhs);
+	return ast_new_bin_op((ast_node_T*)lhs, operation, rhs, (symbol_T*)type);
 }
 
 // dump: DUMP (bin_op | value);
@@ -248,16 +271,21 @@ ast_node_T* if_block(parser_T* parser) {
 
 // assign : ID ASSIGN (value | bin_op) ;
 ast_node_T* assign(parser_T* parser) {
+	printf("parsing assign\n");
 	token_T* ident = parser->tokens[parser->t_index];
 	if (symbol_table_contains(parser->s_table, ident->value)) {
-		symbol_T* symbol = symbol_table_get(parser->s_table, ident->value);
+		symbol_var_T* symbol = (symbol_var_T*)symbol_table_get(parser->s_table, ident->value);
 		consume(parser);
 		consume(parser);
 		ast_node_T* v;
 		if (token_is_op(parser->tokens[(parser->t_index + 1) %parser->t_count])) {
 			v = bin_op(parser);
+			ast_bin_op_T* val = (ast_bin_op_T*) v;
+			symbol->type = val->type;
 		} else {
 			v = value(parser);
+			ast_value_T* val = (ast_value_T*) v;
+			symbol->type = val->type;
 		}
 
 		return ast_new_assign(ident, v);
@@ -270,12 +298,14 @@ ast_node_T* assign(parser_T* parser) {
 
 // var_decl : LET assign SEMI ;
 ast_node_T* var_decl(parser_T* parser) {
+	printf("parsing var_decl\n");
 	consume(parser);
 	if (!symbol_table_contains(parser->s_table, parser->tokens[parser->t_index]->value)) {
 		char* name = parser->tokens[parser->t_index]->value;
-		symbol_T* s = symbol_new(name, SYMBOL_SIZE);
+		symbol_T* s = symbol_new_var(name, NULL);
 
 		symbol_table_put(parser->s_table, s);
+		printf("Inside if\n");
 		ast_node_T* a = assign(parser);
 		consume(parser);
 		return ast_new_var_decl(a);
@@ -286,8 +316,8 @@ ast_node_T* var_decl(parser_T* parser) {
 
 }
 
-// param : (bin_op | value);
-ast_node_T* param(parser_T* parser) {
+// sys_arg : (bin_op | value);
+ast_node_T* sys_arg(parser_T* parser) {
 	token_T* current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
 	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING) { 
@@ -302,7 +332,7 @@ ast_node_T* param(parser_T* parser) {
 	}
 }
 
-// syscall : LPAREN (param (COMMA param)*)? RPAREN;
+// syscall : LPAREN (sys_arg (COMMA sys_arg)*)? RPAREN;
 ast_node_T* syscall(parser_T* parser) {
 	consume(parser);
 	if (parser->tokens[parser->t_index]->type == T_LPAREN) {
@@ -313,7 +343,7 @@ ast_node_T* syscall(parser_T* parser) {
 
 		while (parser->tokens[parser->t_index]->type != T_RPAREN) {
 			//printf("current param: (%s, %s)\n", token_get_name(parser->tokens[parser->t_index]->type), parser->tokens[parser->t_index]->value);
-			params[count++] = param(parser);
+			params[count++] = sys_arg(parser);
 			params = realloc(params, (count + 1) * sizeof(ast_node_T*));
 			if (parser->tokens[parser->t_index]->type == T_COMMA) {
 				consume(parser);
@@ -328,8 +358,129 @@ ast_node_T* syscall(parser_T* parser) {
 	exit(1);
 }
 
-// expr : syscall SEMI | if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
+// func_param : ID COLON ID ;
+token_T* func_param(parser_T* parser, symbol_func_T* func) {
+	token_T* param = parser->tokens[parser->t_index];
+	consume(parser);
+	consume(parser);
+	token_T* param_type = parser->tokens[parser->t_index];
+
+	symbol_T* type_sym = symbol_table_get(parser->s_table, param_type->value);
+
+	if (type_sym != NULL) {
+		switch (type_sym->type) {
+			case SYM_VAR_TYPE:
+				{
+					symbol_T* var_sym = symbol_new_var(param->value, type_sym);
+					func_add_param(func, var_sym);
+					symbol_table_put(parser->s_table, var_sym);
+				}
+				break;
+
+			default:
+				printf("Unknown type annotation. Found %s\n", param_type->value);
+				exit(1);
+		}
+	} else {
+		printf("Unknown type annotation. Found %s\n", param_type->value);
+		exit(1);
+	}
+	consume(parser);
+
+	return param;
+}
+
+// func_decl : FUNC ID LPAREN (func_param (COMMA func_param)*)? RPAREN block ;
+ast_node_T* func_decl(parser_T* parser) {
+	consume(parser);
+	token_T* ident = parser->tokens[parser->t_index];
+	symbol_T* func_sym = symbol_new_func(ident->value);
+
+	consume(parser);
+	consume(parser);
+
+	token_T** params = malloc(sizeof(token_T*));
+	size_t count = 0;
+
+	while (parser->tokens[parser->t_index]->type != T_RPAREN) {
+		params[count++] = func_param(parser, (symbol_func_T*) func_sym);
+		params = realloc(params, (count + 1) * sizeof(token_T*));
+
+		if (parser->tokens[parser->t_index]->type == T_COMMA) {
+			consume(parser);
+		}
+	}
+	consume(parser);
+
+	symbol_table_put(parser->s_table, (symbol_T*) func_sym);
+	ast_node_T* b = block(parser);
+
+	return ast_new_func_decl(params, count, b);
+}
+
+// arg : (value | bin_op) ;
+ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
+	token_T* current = parser->tokens[parser->t_index];
+	token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
+	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING) { 
+		if (token_is_op(next)) {
+			ast_bin_op_T* b = (ast_bin_op_T*)bin_op(parser);
+			if (strcmp(b->type->name, param->type->name) != 0) {
+				printf("Mismatched argument types in function call, found: %s, expected: %s.\n", b->type->name, param->type->name);
+				exit(1);
+			}
+
+			return (ast_node_T*) b;
+		} else {
+			ast_value_T* val = (ast_value_T*)value(parser);
+			if (strcmp(val->type->name, param->type->name) != 0) {
+				printf("Mismatched argument types in function call, found: %s, expected: %s.\n", val->type->name, param->type->name);
+				exit(1);
+			}
+
+			return (ast_node_T*) val;
+		}
+	} else {
+		printf("Unexpected token in param, found: %s.\n", token_get_name(current->type));
+		exit(1);
+	}
+}
+
+// func_call : ID LPAREN (arg (COMMA arg)*)? RPAREN ;
+ast_node_T* func_call(parser_T* parser) {
+	token_T* ident = parser->tokens[parser->t_index];
+	symbol_T* func_sym = symbol_table_get(parser->s_table, ident->value);
+	if (func_sym == NULL || func_sym->type != SYM_FUNC) {
+		printf("Unknown function, is attempted to be called, found: %s.\n", token_get_name(ident->type));
+		exit(1);
+	}
+	symbol_func_T* func = (symbol_func_T*) func_sym;
+	consume(parser);
+	consume(parser);
+
+	ast_node_T** params = malloc(sizeof(ast_node_T*));
+	size_t count = 0;
+
+	while (parser->tokens[parser->t_index]->type != T_RPAREN) {
+		if (count >= func->param_count) {
+			printf("To many arguments for function %s.\n", func->base.name);
+			exit(1);
+		}
+		params[count] = arg(parser, (symbol_var_T*)func->params[count]);
+		count += 1;
+		params = realloc(params, (count + 1) * sizeof(ast_node_T*));
+		if (parser->tokens[parser->t_index]->type == T_COMMA) {
+			consume(parser);
+		}
+	}
+	consume(parser);
+
+	return ast_new_func_call(ident, params, count);
+}
+
+// expr : syscall SEMI | if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
 ast_node_T* expr(parser_T* parser) {
+	printf("parsing expr\n");
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T* child;
 
@@ -345,9 +496,15 @@ ast_node_T* expr(parser_T* parser) {
 		consume(parser);
 	} else if (token->type == T_LET) {
 		child = var_decl(parser);
+	} else if (token->type == T_FUNC) {
+		child = func_decl(parser);
 	} else if (token->type == T_IDENT) {
-		if (parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_ASSIGN) {
+		token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
+		if (next->type == T_ASSIGN) {
 			child = assign(parser);
+			consume(parser);
+		} else if (next->type == T_LPAREN) {
+			child = func_call(parser);
 			consume(parser);
 		} else {
 			child = bin_op(parser);
@@ -366,9 +523,12 @@ ast_node_T* expr(parser_T* parser) {
 
 // program : (expr)* ;
 ast_node_T* program(parser_T* parser) {
+	printf("parsing program\n");
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T** expressions = malloc(sizeof(ast_node_T*));
 	size_t count = 0;
+
+	symbol_table_init_builtins(parser->s_table);
 
 	while (token->type != T_EOF) {
 		expressions[count++] = expr(parser);

@@ -55,6 +55,33 @@ ast_node_T* ast_new_syscall(ast_node_T** params, size_t count) {
 	return (ast_node_T*) syscall;
 }
 
+ast_node_T* ast_new_func_decl(token_T** params, size_t param_count, ast_node_T* block) {
+	ast_node_T* base = malloc(sizeof(ast_node_T));
+	base->type = AST_FUNC_CALL;
+
+	ast_func_decl_T* func_decl = malloc(sizeof(ast_func_decl_T));
+	func_decl->base = *base;
+	func_decl->params = params;
+	func_decl->param_count = param_count;
+	func_decl->block = block;
+
+	return (ast_node_T*) func_decl;
+}
+
+
+ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_count) {
+	ast_node_T* base = malloc(sizeof(ast_node_T));
+	base->type = AST_FUNC_CALL;
+
+	ast_func_call_T* func_call = malloc(sizeof(ast_func_call_T));
+	func_call->base = *base;
+	func_call->params = params;
+	func_call->param_count = param_count;
+
+	return (ast_node_T*) func_call;
+}
+
+
 ast_node_T* ast_new_var_decl(ast_node_T* assign) {
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_VAR_DECL;
@@ -140,7 +167,7 @@ ast_node_T* ast_new_cond_op(token_T* t) {
 	return (ast_node_T*) op;
 }
 
-ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs) {
+ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, symbol_T* type) {
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_BIN_OP;
 
@@ -149,6 +176,7 @@ ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs) {
 	bin_op->lhs = lhs;
 	bin_op->rhs = rhs;
 	bin_op->op = op;
+	bin_op->type = type;
 
 	return (ast_node_T*) bin_op;
 }
@@ -174,13 +202,14 @@ ast_node_T* ast_new_op(token_T* t) {
 	return (ast_node_T*) op;
 }
 
-ast_node_T* ast_new_value(token_T* t) {
+ast_node_T* ast_new_value(token_T* t, symbol_T* type) {
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = AST_VALUE;
 
 	ast_value_T* value = malloc(sizeof(ast_value_T));
 	value->base = *base;
 	value->t = t;
+	value->type = type;
 	return (ast_node_T*) value;
 }
 

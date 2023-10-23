@@ -2,6 +2,7 @@
 #include "include/ast_nodes.h"
 #include "include/file_util.h"
 #include "include/string_util.h"
+#include "include/symbol.h"
 #include "include/symbol_table.h"
 #include "include/token.h"
 #include <stdio.h>
@@ -99,14 +100,25 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 			append_file(c->file, "--\n");
 
 			symbol_T* sym = symbol_table_get(c->s_table, value->t->value);
+			switch (sym->type) {
+				case SYM_VAR:
+					{
+						symbol_var_T* var_sym = (symbol_var_T*) sym;
+						symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
+						append_file(c->file, "    push ");
+						append_file(c->file, var_type->operand);
 
-			append_file(c->file, "    push ");
-			append_file(c->file, sym->operand);
+						char str[20];
+						snprintf(str, 20, " [mem+%zu]\n", (var_type->size * (var_sym->index+1)));
+						append_file(c->file, str);
+						c->stack_pointer += 1;
+					}
+					break;
 
-			char str[20];
-			snprintf(str, 20, " [mem+%zu]\n", (sym->size * (sym->index+1)));
-			append_file(c->file, str);
-			c->stack_pointer += 1;
+				default:
+					printf("Unreachable code in compile_value");
+					exit(1);
+			}
 			break;
 
 		case T_POINTER:
@@ -116,14 +128,25 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 				append_file(c->file, "--\n");
 
 				symbol_T* sym = symbol_table_get(c->s_table, value->t->value);
+				switch (sym->type) {
+					case SYM_VAR:
+						{
+							symbol_var_T* var_sym = (symbol_var_T*) sym;
+							symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
+							append_file(c->file, "    push ");
+							append_file(c->file, var_type->operand);
 
-				append_file(c->file, "    push ");
-				append_file(c->file, sym->operand);
+							char str[20];
+							snprintf(str, 20, " mem+%zu\n", (var_type->size * (var_sym->index+1)));
+							append_file(c->file, str);
+							c->stack_pointer += 1;
+						}
+						break;
 
-				char str[20];
-				snprintf(str, 20, " mem+%zu\n", (sym->size * (sym->index+1)));
-				append_file(c->file, str);
-				c->stack_pointer += 1;
+					default:
+						printf("Unreachable code in compile_value");
+						exit(1);
+				}
 				break;
 			}
 
@@ -265,7 +288,7 @@ void compile_block(compiler_T* c, ast_node_T* node) {
 void compile_else(compiler_T* c, ast_node_T* node) {
 	ast_else_T* elze = (ast_else_T*) node;
 	char str[50];
-	sprintf(str, ".else_%zu:\n", elze->index);
+	snprintf(str, 50, ".else_%zu:\n", elze->index);
 	append_file(c->file, str);
 	switch (elze->block->type) {
 		case AST_IF:
@@ -287,21 +310,21 @@ void compile_while(compiler_T* c, ast_node_T* node) {
 	ast_while_T* while_node = (ast_while_T*) node;
 
 	char str[30];
-	sprintf(str, "    jmp .W_end_%zu\n", while_node->index);
+	snprintf(str, 30, "    jmp .W_end_%zu\n", while_node->index);
 	append_file(c->file, str);
 
-	sprintf(str, ".W_%zu:\n", while_node->index);
+	snprintf(str, 30, ".W_%zu:\n", while_node->index);
 	append_file(c->file, str);
 
 	compile_block(c, while_node->block);
 
-	sprintf(str, ".W_end_%zu:\n", while_node->index);
+	snprintf(str, 30, ".W_end_%zu:\n", while_node->index);
 	append_file(c->file, str);
 
 	compile_conditional(c, while_node->cond);
 	append_file(c->file, "    test al, al\n");
 
-	sprintf(str, "    jnz .W_%zu\n", while_node->index);
+	snprintf(str, 30, "    jnz .W_%zu\n", while_node->index);
 	append_file(c->file, str);
 }
 
@@ -313,11 +336,11 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 	append_file(c->file, "    test al, al\n");
 	if (if_node->elze == NULL) {
 		char str[50];
-		sprintf(str, "    jz .end_%zu\n", if_node->index);
+		snprintf(str, 50, "    jz .end_%zu\n", if_node->index);
 		append_file(c->file, str);
 	} else {
 		char str[50];
-		sprintf(str, "    jz .else_%zu\n", if_node->index);
+		snprintf(str, 50, "    jz .else_%zu\n", if_node->index);
 		append_file(c->file, str);
 	}
 
@@ -325,13 +348,13 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 	
 	if (if_node->elze != NULL) {
 		char str[50];
-		sprintf(str, "    jmp .end_%zu\n", if_node->index);
+		snprintf(str, 50, "    jmp .end_%zu\n", if_node->index);
 		append_file(c->file, str);
 		compile_else(c, if_node->elze);
 	}
 
 	char str[50];
-	sprintf(str, ".end_%zu:\n", if_node->index);
+	snprintf(str,50, ".end_%zu:\n", if_node->index);
 	append_file(c->file, str);
 }
 
@@ -343,23 +366,33 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 		printf("Uninitialized symbol '%s' used in compile_assign\n", token_get_name(a->ident->type));
 		exit(1);
 	}
+	switch (sym->type) {
+		case SYM_VAR:
+			if (a->value->type == AST_VALUE) {
+				compile_value(c, a->value);
+			} else if (a->value->type == AST_BIN_OP) {
+				compile_bin_op(c, a->value);
+			} else {
+				printf("Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
+				exit(1);
+			}
 
-	if (a->value->type == AST_VALUE) {
-		compile_value(c, a->value);
-	} else if (a->value->type == AST_BIN_OP) {
-		compile_bin_op(c, a->value);
-	} else {
-		printf("Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
-		exit(1);
+			symbol_var_T* var_sym = (symbol_var_T*) sym;
+			symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
+			char str[20];
+			append_file(c->file, "    pop ");
+			append_file(c->file, var_type->operand);
+			append_file(c->file, " [mem+");
+
+			snprintf(str, 20, "%zu]\n", (var_type->size * (var_sym->index+1)));
+			append_file(c->file, str);
+			break;
+
+		default:
+			printf("Unexpected symbol type in assignment. Found %s, expected %s.\n", symbol_get_type_string(sym->type), symbol_get_type_string(SYM_VAR));
+			exit(1);
+
 	}
-
-	char str[20];
-	append_file(c->file, "    pop ");
-	append_file(c->file, sym->operand);
-	append_file(c->file, " [mem+");
-
-	snprintf(str, 20, "%zu]\n", (sym->size * (sym->index+1)));
-	append_file(c->file, str);
 
 }
 

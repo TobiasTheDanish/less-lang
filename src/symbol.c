@@ -2,12 +2,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-symbol_T* symbol_new(char* name, size_t size) {
+symbol_T* symbol_new(char* name, symbol_E type) {
 	symbol_T* s = malloc(sizeof(symbol_T));
 
 	s->name = name;
+	s->type = type;
+
+	return s;
+}
+
+symbol_T* symbol_new_type(char* name, size_t size) {
+	symbol_type_T* s = malloc(sizeof(symbol_type_T));
+
+	s->base = *symbol_new(name, SYM_VAR_TYPE);
 	s->size = size;
-	s->index = -1;
 
 	switch (size) {
 		case 1:
@@ -28,5 +36,67 @@ symbol_T* symbol_new(char* name, size_t size) {
 	
 	}
 
+	return (symbol_T*) s;
+}
+
+symbol_T* symbol_new_var(char* name, symbol_T* type) {
+	symbol_var_T* var = malloc(sizeof(symbol_var_T));
+
+	var->base = *symbol_new(name, SYM_VAR);
+	var->type = type;
+	var->index = -1;
+
+	return (symbol_T*) var;
+}
+
+symbol_T* symbol_new_func(char* name) {
+	symbol_func_T* func = malloc(sizeof(symbol_func_T));
+	symbol_T* base = symbol_new(name, SYM_FUNC);
+	func->base = *base;
+	func->params = calloc(1, sizeof(symbol_T*));
+	func->param_count = 0;
+	func->params[0] = (void*) 0;
+
+	return (symbol_T*) func;
+}
+
+void func_add_param(symbol_func_T* func, symbol_T* param) {
+	func->params[func->param_count++] = param;
+	func->params = realloc(func->params, (func->param_count+1) * sizeof(symbol_T*));
+}
+
+char* symbol_to_string(symbol_T* symbol) {
+	char* s = calloc(100, sizeof(char));
+
+	switch (symbol->type) 
+	{
+		case SYM_VAR_TYPE:
+			sprintf(s, "%s", symbol->name);
+			break;
+
+		case SYM_VAR:
+			{
+				symbol_var_T* var = (symbol_var_T*) symbol;
+				sprintf(s, "<%s:%s>", var->base.name, var->type->name);
+			}
+			break;
+
+		case SYM_FUNC:
+			{
+				symbol_func_T* proc = (symbol_func_T*) symbol;
+				sprintf(s, "<%s: func, params: %zu>", proc->base.name, proc->param_count);
+			}
+			break;
+	}
 	return s;
+}
+
+char* symbol_get_type_string(symbol_E type) {
+	char* names[] = {
+		"Variable",
+		"Function",
+		"Type",
+	};
+
+	return names[type];
 }

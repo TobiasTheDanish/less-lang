@@ -36,12 +36,12 @@ token_T* read_ident(lexer_T* lexer) {
 	char* value = calloc(2, sizeof(char));
 	size_t i = 0;
 
-	while (isalnum(lexer->c)) {
+	do {
 		value[i++] = lexer->c;
 
 		value = realloc(value, (i + 1) * sizeof(char));
 		advance(lexer);
-	}
+	} while (isalnum(lexer->c));
 
 	if (strcmp("else", value) == 0) {
 		return token_new(T_ELSE, value);
@@ -53,8 +53,9 @@ token_T* read_ident(lexer_T* lexer) {
 		return token_new(T_WHILE, value);
 	} else if (strcmp("syscall", value) == 0) {
 		return token_new(T_SYSCALL, value);
+	} else if (strcmp("func", value) == 0) {
+		return token_new(T_FUNC, value);
 	}
-
 
 	return token_new(T_IDENT, value);
 }
@@ -100,7 +101,7 @@ void skip_multiline_comment(lexer_T* lexer) {
 }
 
 token_T* read_if(lexer_T* lexer) {
-	char* str = calloc(2, sizeof(char));
+	char* str = calloc(3, sizeof(char));
 	for (size_t i = 0; i < 2; i++) {
 		str[i] = lexer->c;
 		advance(lexer);
@@ -184,6 +185,9 @@ token_T* lexer_next_token(lexer_T* lexer) {
 		}
 
 		switch (lexer->c) {
+			case ':':
+				return advance_with_token(lexer, T_COLON);
+
 			case ';':
 				return advance_with_token(lexer, T_SEMI);
 
