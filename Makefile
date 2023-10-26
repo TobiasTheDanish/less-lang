@@ -1,4 +1,4 @@
-exec = less
+exec = lessl
 
 sources = $(wildcard src/*.c)
 objects = $(sources:.c=.o)

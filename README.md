@@ -15,13 +15,12 @@ To compile and assemble a Less file (suffixed '.l'), for now a shell script is n
 You can run the following commands to compile one of the example scripts in the 'tests' directory:
 
 ```console
-make
-./run.sh output/program tests/02-conditionals.l
+make //builds the compiler
+
+./lessl tests/02-conditionals.l -o output/program //compiles one of the test programs
 ```
 
-The above command runs the 'less' executable, produced by the make command, and then assembles, and links the outputted assembly.
-
-You can also compile the program to assembly via the 'less' executable. However, you will for now have to call the assembler and linker manually.
+The 'lessl' executable, produced by the make command, first compiles the program to assembly, then assembles and links that assembly.
 
 To see the usage of the executable, simply execute the command with no arguments.
 
@@ -63,6 +62,7 @@ C-style syntax
 - [x] Memory access and storage (Primitive types)
 - [x] Support for Linux syscalls
 - [x] String literals
+- [x] Functions
 - [ ] Arrays
 
 
@@ -167,3 +167,26 @@ syscall(1, 1, str, 17);
 // syscall 1 is the write syscall
 // fd 1 is stdout
 ```
+
+
+---
+
+
+
+### Functions
+
+Functions are declared by the 'func' keyword, followed by the name of the function,
+the functions parameters inclosed by parentheses, and the function block itself, enclosed in curly brackets.
+
+Any less program needs a main function to allow it to be compiled and executed, e.g:
+```go
+func print(str: string) {
+    syscall(1,1,str,50);
+}
+
+func main() {
+    print("Hello world!\n");
+}
+```
+
+NOTE: For now any function referenced in another function have to be declared first, reading from top to bottom.
