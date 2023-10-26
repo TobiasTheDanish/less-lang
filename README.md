@@ -14,17 +14,17 @@ Less only supports linux, and will probably only support linux (x86_64 to be mor
 To compile and assemble a Less file (suffixed '.l'), for now a shell script is needed.
 You can run the following commands to compile one of the example scripts in the 'tests' directory:
 
-```console
-make //builds the compiler
+```bash
+make #builds the compiler
 
-./lessl tests/02-conditionals.l -o output/program //compiles one of the test programs
+./lessl tests/02-conditionals.l -o output/program #compiles one of the test programs
 ```
 
 The 'lessl' executable, produced by the make command, first compiles the program to assembly, then assembles and links that assembly.
 
 To see the usage of the executable, simply execute the command with no arguments.
 
-```console
+```bash
 ./less
 ```
 
@@ -77,7 +77,7 @@ C-style syntax
 
 A variable is declared with the 'let' keyword, and (for now) has to be assigned a value at declaration, example:
 
-```
+```javascript
 let fortyTwo = 42;
 ```
 
@@ -91,7 +91,7 @@ let fortyTwo = 42;
 
 Less supports basic arithmetic, '+', '-', '*', '/'. However, the mathematical order of precedence i currently not followed.
 
-```
+```javascript
 let fortyTwo = 22 + 20;
 
 //Will set wrong to 64:
@@ -140,7 +140,7 @@ Follow this [link](https://chromium.googlesource.com/chromiumos/docs/+/master/co
 
 String literals are denoted by double quotes.
 
-```
+```go
 "Hello world"
 ```
 
@@ -159,13 +159,15 @@ The following escape characters are support:
 
 An example program using string literals with some of the different escape characters.
 
-```
-let str = "\t\"Hello \vworld!\"\n";
+```go
+func main() {
+   let str = "\t\"Hello \vworld!\"\n";
 
-// the next line writes the content of the 'str' variable to stdout
-syscall(1, 1, str, 17);
-// syscall 1 is the write syscall
-// fd 1 is stdout
+   // the next line writes the content of the 'str' variable to stdout
+   syscall(1, 1, str, 17);
+   // syscall 1 is the write syscall
+   // fd 1 is stdout
+}
 ```
 
 
@@ -190,3 +192,22 @@ func main() {
 ```
 
 NOTE: For now any function referenced in another function have to be declared first, reading from top to bottom.
+
+
+---
+
+
+## Control flow
+
+
+### If/else blocks
+
+TODO
+
+---
+
+### Loops
+
+TODO
+
+
