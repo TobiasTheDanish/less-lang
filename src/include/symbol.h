@@ -18,6 +18,7 @@ typedef struct SYMBOL_VAR_STRUCT {
 	symbol_T base;
 	symbol_T* type;
 	size_t index;
+	unsigned char is_param;
 } symbol_var_T;
 
 typedef struct SYMBOL_VAR_TYPE_STRUCT {
@@ -36,7 +37,7 @@ symbol_T* symbol_new(char* name, symbol_E type);
 
 symbol_T* symbol_new_type(char* name, size_t size);
 
-symbol_T* symbol_new_var( char* name, symbol_T* type);
+symbol_T* symbol_new_var(char* name, symbol_T* type, unsigned char is_param);
 
 symbol_T* symbol_new_func(char* name);
 

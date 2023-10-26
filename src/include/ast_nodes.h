@@ -116,7 +116,7 @@ typedef struct AST_NODE_BIN_OP {
 	ast_node_T* lhs;
 	ast_node_T* op;
 	ast_node_T* rhs;
-	symbol_T* type;
+	symbol_T* type_sym;
 } ast_bin_op_T;
 
 typedef struct AST_NODE_DUMP {
@@ -132,7 +132,7 @@ typedef struct AST_NODE_OP {
 typedef struct AST_NODE_VALUE {
 	ast_node_T base;
 	token_T* t;
-	symbol_T* type;
+	symbol_T* type_sym;
 } ast_value_T;
 
 ast_node_T* ast_new(ast_node_E type);
@@ -140,7 +140,7 @@ ast_node_T* ast_new_program(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_block(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_expr(ast_node_T* child);
 ast_node_T* ast_new_syscall(ast_node_T** params, size_t count);
-ast_node_T* ast_new_func_decl(token_T** params, size_t param_count, ast_node_T* block);
+ast_node_T* ast_new_func_decl(token_T* ident, token_T** params, size_t param_count, ast_node_T* block);
 ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_count);
 ast_node_T* ast_new_var_decl(ast_node_T* assign);
 ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value);

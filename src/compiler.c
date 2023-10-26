@@ -5,6 +5,7 @@
 #include "include/symbol.h"
 #include "include/symbol_table.h"
 #include "include/token.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -100,6 +101,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 			append_file(c->file, "--\n");
 
 			symbol_T* sym = symbol_table_get(c->s_table, value->t->value);
+			
 			switch (sym->type) {
 				case SYM_VAR:
 					{
@@ -109,14 +111,18 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 						append_file(c->file, var_type->operand);
 
 						char str[20];
-						snprintf(str, 20, " [mem+%zu]\n", (var_type->size * (var_sym->index+1)));
+							if (!var_sym->is_param) {
+								snprintf(str, 20, " [mem+%zu]\n", (var_type->size * (var_sym->index+1)));
+							} else {
+								snprintf(str, 20, " [rbp-%zu]\n", (var_type->size * (var_sym->index+1)));
+							}
 						append_file(c->file, str);
 						c->stack_pointer += 1;
 					}
 					break;
 
 				default:
-					printf("Unreachable code in compile_value");
+					printf("Unreachable code in compile_value\n");
 					exit(1);
 			}
 			break;
@@ -137,14 +143,18 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 							append_file(c->file, var_type->operand);
 
 							char str[20];
-							snprintf(str, 20, " mem+%zu\n", (var_type->size * (var_sym->index+1)));
+							if (!var_sym->is_param) {
+								snprintf(str, 20, " mem+%zu\n", (var_type->size * (var_sym->index+1)));
+							} else {
+								snprintf(str, 20, " rbp-%zu\n", (var_type->size * (var_sym->index+1)));
+							}
 							append_file(c->file, str);
 							c->stack_pointer += 1;
 						}
 						break;
 
 					default:
-						printf("Unreachable code in compile_value");
+						printf("Unreachable code in compile_value\n");
 						exit(1);
 				}
 				break;
@@ -276,12 +286,10 @@ void compile_conditional(compiler_T* c, ast_node_T* node) {
 }
 
 void compile_block(compiler_T* c, ast_node_T* node) {
-	//printf("compile_block\n");
 	ast_block_T* block = (ast_block_T*) node;
 
 	for (size_t i = 0; i < block->count; i++) {
 		compile_expr(c, block->expressions[i]);
-		//printf("Compiled %zu expressions out of %zu\n", i, block->count);
 	}
 }
 
@@ -403,8 +411,8 @@ void compile_var_decl(compiler_T* c, ast_node_T* node) {
 	compile_assign(c, decl->assign);
 }
 
-// param : (bin_op | value);
-void compile_param(compiler_T* c, ast_node_T* node) {
+// sys_arg : (bin_op | value);
+void compile_sys_arg(compiler_T* c, ast_node_T* node) {
 	switch (node->type) {
 
         case AST_BIN_OP:
@@ -420,7 +428,7 @@ void compile_param(compiler_T* c, ast_node_T* node) {
 	}
 }
 
-// syscall : LPAREN (param (COMMA param)*)? RPAREN;
+// syscall : LPAREN (sys_arg (COMMA sys_arg)*)? RPAREN;
 void compile_syscall(compiler_T* c, ast_node_T* node) {
 	ast_syscall_T* syscall = (ast_syscall_T*) node;
 
@@ -435,44 +443,184 @@ void compile_syscall(compiler_T* c, ast_node_T* node) {
 	append_file(c->file, "    ; -- syscall --\n");
 
 	if (syscall->count > 1) {
-		compile_param(c, syscall->params[1]);
+		compile_sys_arg(c, syscall->params[1]);
 		append_file(c->file, "    pop rdi\n");
 	}
 
 	if (syscall->count > 2) {
-		compile_param(c, syscall->params[2]);
+		compile_sys_arg(c, syscall->params[2]);
 		append_file(c->file, "    pop rsi\n");
 	}
 
 	if (syscall->count > 3) {
-		compile_param(c, syscall->params[3]);
+		compile_sys_arg(c, syscall->params[3]);
 		append_file(c->file, "    pop rdx\n");
 	}
 
 	if (syscall->count > 4) {
-		compile_param(c, syscall->params[4]);
+		compile_sys_arg(c, syscall->params[4]);
 		append_file(c->file, "    pop r10\n");
 	}
 	
 	if (syscall->count > 5) {
-		compile_param(c, syscall->params[5]);
+		compile_sys_arg(c, syscall->params[5]);
 		append_file(c->file, "    pop r8\n");
 	}
 
 	if (syscall->count > 6) {
-		compile_param(c, syscall->params[6]);
+		compile_sys_arg(c, syscall->params[6]);
 		append_file(c->file, "    pop r9\n");
 	}
 
-	compile_param(c, syscall->params[0]);
+	compile_sys_arg(c, syscall->params[0]);
 	append_file(c->file, "    pop rax\n");
 
 	append_file(c->file, "    syscall\n");
 }
 
-// expr : syscall SEMI | if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI;
+// func_param : ID COLON ID ;
+void compile_func_param(compiler_T* c, token_T* node, size_t param_index) {
+	symbol_T* sym = symbol_table_get(c->s_table, node->value);
+	if (sym == NULL) {
+		printf("Could not find symbol '%s' in symbol_table\n", node->value);
+		exit(1);
+	}
+	if (sym->type != SYM_VAR) {
+		printf("Unexpected symbol type found when compiling function params. Found %s, expected %s\n", symbol_get_type_string(sym->type), symbol_get_type_string(SYM_VAR));
+		exit(1);
+	}
+
+	symbol_var_T* param_sym = (symbol_var_T*) sym;
+	symbol_type_T* param_type = (symbol_type_T*) param_sym->type;
+	char str[50];
+	snprintf(str, 49, "    mov %s [rbp-%zu]", param_type->operand, (param_type->size * (param_sym->index+1)));
+	append_file(c->file, str);
+	switch (param_index) {
+		case 0:
+			append_file(c->file, ", rdi\n");
+			break;
+		case 1:
+			append_file(c->file, ", rsi\n");
+			break;
+		case 2:
+			append_file(c->file, ", rdx\n");
+			break;
+		case 3:
+			append_file(c->file, ", rcx\n");
+			break;
+		case 4:
+			append_file(c->file, ", r8\n");
+			break;
+		case 5:
+			append_file(c->file, ", r9\n");
+			break;
+	}
+
+}
+
+// func_decl : FUNC ID LPAREN (func_param (COMMA func_param)*)? RPAREN block ;
+void compile_func_decl(compiler_T* c, ast_node_T* node) {
+	ast_func_decl_T* decl = (ast_func_decl_T*)node;
+
+	append_file(c->file, "_");
+	append_file(c->file, decl->ident->value);
+	append_file(c->file, ":\n");
+	append_file(c->file, "    push rbp\n");
+	append_file(c->file, "    mov rbp, rsp\n");
+
+	c->s_table = symbol_table_get_child(c->s_table, decl->ident->value);
+	for (char i = decl->param_count - 1; i >= 0; i--) {
+		compile_func_param(c, decl->params[i], i);
+	}
+	
+	compile_block(c, decl->block);
+
+	c->s_table = c->s_table->parent;
+	if (strcmp(decl->ident->value, "main") == 0) {
+		append_file(c->file, "    ; exit program\n");
+		append_file(c->file, "    mov rdi, 0\n");
+		append_file(c->file, "    mov rax, 60\n");
+		append_file(c->file, "    syscall\n");
+	} else {
+		append_file(c->file, "    pop rbp\n");
+		append_file(c->file, "    ret\n");
+	}
+}
+
+// arg : (value | bin_op) ;
+void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
+	switch (node->type) {
+		case AST_VALUE:
+			compile_value(c, node);
+			break;
+
+		case AST_BIN_OP:
+			compile_bin_op(c, node);
+			break;
+
+		case AST_PROGRAM:
+		case AST_BLOCK:
+		case AST_EXPR:
+		case AST_SYSCALL:
+		case AST_VAR_DECL:
+		case AST_FUNC_DECL:
+		case AST_FUNC_CALL:
+		case AST_ASSIGN:
+		case AST_WHILE:
+		case AST_IF:
+		case AST_ELSE:
+		case AST_CONDITIONAL:
+		case AST_COND_OP:
+		case AST_OP:
+		case AST_DUMP:
+		case AST_NO_OP:
+			printf("Invalid node in function call argument. Found %s\n", ast_get_name(node->type));
+			exit(1);
+	}
+
+	switch (param_index) {
+		case 0:
+			append_file(c->file, "    pop rdi\n");
+			break;
+		case 1:
+			append_file(c->file, "    pop rsi\n");
+			break;
+		case 2:
+			append_file(c->file, "    pop rdx\n");
+			break;
+		case 3:
+			append_file(c->file, "    pop rcx\n");
+			break;
+		case 4:
+			append_file(c->file, "    pop r8\n");
+			break;
+		case 5:
+			append_file(c->file, "    pop r9\n");
+			break;
+	}
+}
+
+// func_call : ID LPAREN (arg (COMMA arg)*)? RPAREN ;
+void compile_func_call(compiler_T* c, ast_node_T* node) {
+	ast_func_call_T* call = (ast_func_call_T*) node;
+	char* name = call->ident->value;
+	
+	for (int i = call->param_count - 1; i >= 0; i--) {
+		compile_func_arg(c, call->params[i], i);
+	}
+	append_file(c->file, "    call _");
+	append_file(c->file, name);
+	append_file(c->file, "\n");
+
+	if (call->param_count > 6) {
+		char str[20];
+		snprintf(str, 20, "    add rsp, %zu\n", (8 * (call->param_count - 6)));
+		append_file(c->file, str);
+	}
+}
+
+// expr : syscall SEMI | if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
 void compile_expr(compiler_T* c, ast_node_T* node) {
-	//printf("compile_expr\n");
 	ast_expr_T* expr = (ast_expr_T*) node;
 
 	switch (expr->child->type) {
@@ -497,6 +645,12 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 		case AST_WHILE:
 			compile_while(c, expr->child);
 			break;
+		case AST_FUNC_DECL:
+			compile_func_decl(c, expr->child);
+			break;
+		case AST_FUNC_CALL:
+			compile_func_call(c, expr->child);
+			break;
 
 		case AST_ELSE:
 		case AST_BLOCK:
@@ -514,14 +668,11 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 
 
 void compile_program(compiler_T* c, ast_node_T* node) {
-	//printf("compile_program\n");
-	//printf("program type: %u\n", program->type);
 	if (node->type == AST_PROGRAM) {
 		ast_program_T* program = (ast_program_T*) node;
 
 		for (size_t i = 0; i < program->count; i++) {
 			compile_expr(c, program->expressions[i]);
-			//printf("Compiled %zu expressions out of %zu\n", i, block->count);
 		}
 	} else {
 		printf("Unexpected node to start program.\n Found: %s, expects: %s.\n", ast_get_name(node->type), ast_get_name(AST_PROGRAM));
@@ -530,7 +681,6 @@ void compile_program(compiler_T* c, ast_node_T* node) {
 }
 
 void compile(compiler_T* c) {
-	//printf("compile\n");
 	append_file(c->file, "BITS 64\n");
 	append_file(c->file, "global _start\n");
 	append_file(c->file, "section .text\n");
@@ -569,19 +719,13 @@ void compile(compiler_T* c) {
 	append_file(c->file, "		add     rsp, 40\n");
 	append_file(c->file, "		ret\n\n");
 	append_file(c->file, "_start:\n");
-	append_file(c->file, "    push    rbp\n");
-	append_file(c->file, "    mov     rbp, rsp\n");
-	append_file(c->file, "    sub     rsp, ");
-	char str[12];
-	snprintf(str, 12, "%zu\n", ((c->s_table->count + 1) * 8));
-	append_file(c->file, str);
+	append_file(c->file, "    ; init global variables\n");
+	append_file(c->file, "    ; NOT CURRENTLY IMPLEMENTED\n");
+	append_file(c->file, "    ; start execution\n");
+	append_file(c->file, "    jmp _main\n");
 
 	compile_program(c, c->program);
 
-	append_file(c->file, "    ; exit program\n");
-	append_file(c->file, "    mov rdi, 0\n");
-	append_file(c->file, "    mov rax, 60\n");
-	append_file(c->file, "    syscall\n");
 
 	append_file(c->file, "segment .bss\n");
 	append_file(c->file, "    mem: resb 64000\n");
@@ -604,5 +748,5 @@ void compile(compiler_T* c) {
 
 	close_file(c->file);
 
-	printf("Compilation finished\n");
+	printf("[INFO]: Compilation finished\n");
 }

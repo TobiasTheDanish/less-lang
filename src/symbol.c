@@ -39,12 +39,13 @@ symbol_T* symbol_new_type(char* name, size_t size) {
 	return (symbol_T*) s;
 }
 
-symbol_T* symbol_new_var(char* name, symbol_T* type) {
+symbol_T* symbol_new_var(char* name, symbol_T* type, unsigned char is_param) {
 	symbol_var_T* var = malloc(sizeof(symbol_var_T));
 
 	var->base = *symbol_new(name, SYM_VAR);
 	var->type = type;
 	var->index = -1;
+	var->is_param = is_param;
 
 	return (symbol_T*) var;
 }
@@ -71,13 +72,13 @@ char* symbol_to_string(symbol_T* symbol) {
 	switch (symbol->type) 
 	{
 		case SYM_VAR_TYPE:
-			sprintf(s, "%s", symbol->name);
+			sprintf(s, "<builtin:%s>", symbol->name);
 			break;
 
 		case SYM_VAR:
 			{
 				symbol_var_T* var = (symbol_var_T*) symbol;
-				sprintf(s, "<%s:%s>", var->base.name, var->type->name);
+				sprintf(s, "<%s:%s:%zu>", var->base.name, var->type->name, var->index);
 			}
 			break;
 

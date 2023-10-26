@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
 	}
 
 	char* filepath = argv[1];
+	printf("[INFO]: Compiling %s\n", filepath);
 	lexer_T* lexer = lexer_from_file(filepath);
 	parser_T* parser = parser_new(lexer, 2);
 	ast_node_T* program = parser_parse(parser);

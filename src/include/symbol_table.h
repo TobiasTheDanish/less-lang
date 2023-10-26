@@ -32,5 +32,7 @@ symbol_table_T* symbol_table_get_child(symbol_table_T* table, char* name);
 
 void symbol_table_put_child(symbol_table_T* table, symbol_table_T* child);
 
+void symbol_table_print(symbol_table_T* table);
+
 #endif // !SYMBOL_TABLE_H
 

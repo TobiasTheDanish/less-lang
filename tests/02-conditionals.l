@@ -1,13 +1,15 @@
-let cond = 34 + 34;
-let res = 0;
-if cond == 69 {
-	res = 500 - 20;
-} else {
+func main() {
+	let cond = 34 + 34;
+	let res = 0;
+
 	if cond == 69 {
+		res = 500 - 20;
+	} else if cond == 69 {
 		res = 500 - 200;
 	} else {
 		res = 207 / 3;
-	}
-}
 
-dump res;
+	}
+
+	dump res;
+}
