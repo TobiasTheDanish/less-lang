@@ -1,5 +1,6 @@
 #include "include/lexer.h"
 #include "include/file_util.h"
+#include "include/logger.h"
 #include "include/token.h"
 #include <ctype.h>
 #include <stdlib.h>
@@ -8,7 +9,7 @@
 lexer_T* lexer_from_file(char* filePath){
 	file_T* file = open_file(filePath);
 	char* content = read_file(file);
-	printf("src: \n%s\n", content);
+	log_info("src: \n%s\n", content);
 
 	lexer_T* lexer = malloc(sizeof(lexer_T));
 	lexer->content = content;
@@ -252,7 +253,7 @@ token_T* lexer_next_token(lexer_T* lexer) {
 				return advance_with_token(lexer, T_GREATER);
 		
 			default:
-				printf("Unexpected character when lexing: '%c'.\n", lexer->c);
+				log_warning("Unexpected character when lexing: '%c'.\n", lexer->c);
 				return token_new(T_EOF, "EOF");
 		}
 	}

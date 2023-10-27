@@ -1,8 +1,10 @@
 #include "include/parser.h"
 #include "include/ast_nodes.h"
+#include "include/logger.h"
 #include "include/symbol.h"
 #include "include/symbol_table.h"
 #include "include/token.h"
+#include <math.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +33,7 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 }
 
 void consume(parser_T* parser) {
-	//printf("Token: (%s, %s)\n", token_get_name(parser->tokens[parser->t_index]->type), parser->tokens[parser->t_index]->value);
+	//log_info("Token: (%s, %s)\n", token_get_name(parser->tokens[parser->t_index]->type), parser->tokens[parser->t_index]->value);
 
 	parser->tokens[parser->t_index] = lexer_next_token(parser->lexer);
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
@@ -51,8 +53,7 @@ ast_node_T* value(parser_T* parser) {
 				consume(parser);
 				break;
 			} else {
-				printf("Use of '%s', before declaration.\n", token->value);
-				exit(1);
+				log_error(1, "Use of '%s', before declaration.\n", token->value);
 			}
 		case T_IDENT:
 			if (symbol_table_contains(parser->s_table, token->value)) {
@@ -62,8 +63,7 @@ ast_node_T* value(parser_T* parser) {
 				consume(parser);
 				break;
 			} else {
-				printf("Use of '%s', before declaration.\n", token->value);
-				exit(1);
+				log_error(1, "Use of '%s', before declaration.\n", token->value);
 			}
 		case T_INTEGER:
 			//printf("<%s, %s>\n", token->value, "int");
@@ -78,8 +78,7 @@ ast_node_T* value(parser_T* parser) {
 			break;
 
 		default:
-			printf("Invalid token type for value. Found: %s.\n", token_get_name(token->type));
-			exit(1);
+			log_error(1, "Invalid token type for value. Found: %s.\n", token_get_name(token->type));
 	}
 
 	return res;
@@ -101,8 +100,7 @@ ast_node_T* op(parser_T* parser) {
 			break;
 
 		default:
-			printf("Invalid token type for op. Found: %s.\n", token_get_name(token->type));
-			exit(1);
+			log_error(1, "Invalid token type for op. Found: %s.\n", token_get_name(token->type));
 	}
 
 	return res;
@@ -125,8 +123,8 @@ ast_node_T* bin_op(parser_T* parser) {
 		if (strcmp(lhs->type_sym->name, b->type_sym->name) == 0) {
 			type = (symbol_type_T*) lhs->type_sym;
 		} else {
-			printf("Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type_sym->name, b->type_sym->name);
-			exit(1);
+			log_error(1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type_sym->name, b->type_sym->name);
+			return NULL; //unreachable
 		}
 	} else if (current->type == T_INTEGER || current->type == T_IDENT) {
 		rhs = value(parser);
@@ -134,12 +132,10 @@ ast_node_T* bin_op(parser_T* parser) {
 		if (lhs->type_sym != NULL && b->type_sym != NULL && strcmp(lhs->type_sym->name, b->type_sym->name) == 0) {
 			type = (symbol_type_T*) lhs->type_sym;
 		} else {
-			printf("Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type_sym->name, b->type_sym->name);
-			exit(1);
+			log_error(1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type_sym->name, b->type_sym->name);
 		}
 	} else {
-		printf("Invalid token type for rhs in bin_op. Found: %s, expected an identifier, value or bin_op\n", token_get_name(current->type));
-		exit(1);
+		log_error(1, "Invalid token type for rhs in bin_op. Found: %s, expected an identifier, value or bin_op\n", token_get_name(current->type));
 	}
 
 	return ast_new_bin_op((ast_node_T*)lhs, operation, rhs, (symbol_T*)type);
@@ -172,8 +168,7 @@ ast_node_T* cond_op(parser_T* parser) {
 			break;
 
 		default:
-			printf("Invalid token type for cond_op. Found: %s.\n", token_get_name(token->type));
-			exit(1);
+			log_error(1, "Invalid token type for cond_op. Found: %s.\n", token_get_name(token->type));
 	}
 
 	return res;
@@ -215,7 +210,6 @@ ast_node_T* block(parser_T* parser) {
 			expressions = realloc(expressions, (count + 1) * sizeof(ast_node_T*));
 
 			token = parser->tokens[parser->t_index];
-			//printf("number of expressions: %zu\n", count);
 		} 
 		consume(parser);
 	}
@@ -237,8 +231,8 @@ ast_node_T* else_block(parser_T* parser, size_t index) {
 			break;
 
 		default:
-			printf("Invalid token type for else_block. Found: %s.\n", token_get_name(next->type));
-			exit(1);
+			log_error(1, "Invalid token type for else_block. Found: %s.\n", token_get_name(next->type));
+			return NULL; //unreachable
 	}
 
 	return ast_new_else(index, b);
@@ -289,8 +283,8 @@ ast_node_T* assign(parser_T* parser) {
 
 		return ast_new_assign(ident, v);
 	} else {
-		printf("Use of '%s', before declaration.\n", ident->value);
-		exit(1);
+		log_error(1, "Use of '%s', before declaration.\n", ident->value);
+		return NULL; //unreachable
 	}
 
 }
@@ -307,10 +301,9 @@ ast_node_T* var_decl(parser_T* parser) {
 		consume(parser);
 		return ast_new_var_decl(a);
 	} else {
-		printf("Redeclaration of existing variable '%s'.\n", parser->tokens[parser->t_index]->value);
-		exit(1);
+		log_error(1, "Redeclaration of existing variable '%s'.\n", parser->tokens[parser->t_index]->value);
+		return NULL; //unreachable
 	}
-
 }
 
 // sys_arg : (bin_op | value);
@@ -324,8 +317,8 @@ ast_node_T* sys_arg(parser_T* parser) {
 			return value(parser);
 		}
 	} else {
-		printf("Unexpected token in param, found: %s.\n", token_get_name(current->type));
-		exit(1);
+		log_error(1, "Unexpected token in param, found: %s.\n", token_get_name(current->type));
+		return NULL; //unreachable
 	}
 }
 
@@ -339,7 +332,6 @@ ast_node_T* syscall(parser_T* parser) {
 		size_t count = 0;
 
 		while (parser->tokens[parser->t_index]->type != T_RPAREN) {
-			//printf("current param: (%s, %s)\n", token_get_name(parser->tokens[parser->t_index]->type), parser->tokens[parser->t_index]->value);
 			params[count++] = sys_arg(parser);
 			params = realloc(params, (count + 1) * sizeof(ast_node_T*));
 			if (parser->tokens[parser->t_index]->type == T_COMMA) {
@@ -351,8 +343,8 @@ ast_node_T* syscall(parser_T* parser) {
 		return ast_new_syscall(params, count);
 	}
 
-	printf("Expected list of params for syscall.\n");
-	exit(1);
+	log_error(1, "Expected list of params for syscall.\n");
+	return NULL; //unreachable
 }
 
 // func_param : ID COLON ID ;
@@ -375,12 +367,10 @@ token_T* func_param(parser_T* parser, symbol_func_T* func) {
 				break;
 
 			default:
-				printf("Unknown type annotation. Found %s\n", param_type->value);
-				exit(1);
+				log_error(1, "Unknown type annotation. Found %s\n", param_type->value);
 		}
 	} else {
-		printf("Unknown type annotation. Found %s\n", param_type->value);
-		exit(1);
+		log_error(1, "Unknown type annotation. Found %s\n", param_type->value);
 	}
 	consume(parser);
 
@@ -434,8 +424,7 @@ ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 			ast_node_T* n = bin_op(parser);
 			ast_bin_op_T* b = (ast_bin_op_T*)n;
 			if (strcmp(b->type_sym->name, param->type->name) != 0) {
-				printf("Mismatched argument types in function call, found: %s, expected: %s.\n", b->type_sym->name, param->type->name);
-				exit(1);
+				log_error(1, "Mismatched argument types in function call, found: %s, expected: %s.\n", b->type_sym->name, param->type->name);
 			}
 
 			return n;
@@ -443,15 +432,14 @@ ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 			ast_node_T* n = value(parser);
 			ast_value_T* val = (ast_value_T*)n;
 			if (strcmp(val->type_sym->name, param->type->name) != 0) {
-				printf("Mismatched argument types in function call, found: %s, expected: %s.\n", val->type_sym->name, param->type->name);
-				exit(1);
+				log_error(1, "Mismatched argument types in function call, found: %s, expected: %s.\n", val->type_sym->name, param->type->name);
 			}
 
 			return n;
 		}
 	} else {
-		printf("Unexpected token in param, found: %s.\n", token_get_name(current->type));
-		exit(1);
+		log_error(1, "Unexpected token in param, found: %s.\n", token_get_name(current->type));
+		return NULL; //unreachable
 	}
 }
 
@@ -460,8 +448,7 @@ ast_node_T* func_call(parser_T* parser) {
 	token_T* ident = parser->tokens[parser->t_index];
 	symbol_T* func_sym = symbol_table_get(parser->s_table, ident->value);
 	if (func_sym == NULL || func_sym->type != SYM_FUNC) {
-		printf("Unknown function, is attempted to be called, found: %s.\n", token_get_name(ident->type));
-		exit(1);
+		log_error(1, "Unknown function, is attempted to be called, found: %s.\n", token_get_name(ident->type));
 	}
 	symbol_func_T* func = (symbol_func_T*) func_sym;
 	consume(parser);
@@ -472,8 +459,7 @@ ast_node_T* func_call(parser_T* parser) {
 
 	while (parser->tokens[parser->t_index]->type != T_RPAREN) {
 		if (count >= func->param_count) {
-			printf("To many arguments for function %s. Found %zu, expected %zu\n", func->base.name, count, func->param_count);
-			exit(1);
+			log_error(1, "To many arguments for function %s. Found %zu, expected %zu\n", func->base.name, count, func->param_count);
 		}
 
 		params[count] = arg(parser, (symbol_var_T*)func->params[count]);
@@ -484,8 +470,7 @@ ast_node_T* func_call(parser_T* parser) {
 		}
 	}
 	if (count < func->param_count) {
-		printf("To few arguments for function %s. Found %zu, expected %zu\n", func->base.name, count, func->param_count);
-		exit(1);
+		log_error(1, "To few arguments for function %s. Found %zu, expected %zu\n", func->base.name, count, func->param_count);
 	}
 	consume(parser);
 
@@ -539,8 +524,7 @@ ast_node_T* expr(parser_T* parser) {
 			break;
 
 		default:
-			printf("Invalid token type in expression. Found: %s.\n", token_get_name(token->type));
-			exit(1);
+			log_error(1, "Invalid token type in expression. Found: %s.\n", token_get_name(token->type));
 	}
 
 	return ast_new_expr(child);

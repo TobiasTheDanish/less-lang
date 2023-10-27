@@ -1,6 +1,7 @@
 #include "include/compiler.h"
 #include "include/ast_nodes.h"
 #include "include/file_util.h"
+#include "include/logger.h"
 #include "include/string_util.h"
 #include "include/symbol.h"
 #include "include/symbol_table.h"
@@ -28,8 +29,7 @@ compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, data_tabl
 void compile_op(compiler_T* c, ast_node_T* node) {
 	ast_op_T* op = (ast_op_T*) node;
 	if (c->stack_pointer < 2) {
-		printf("Stack pointer to small for binary operation.\n");
-		exit(1);
+		log_error(1, "Stack pointer to small for binary operation.\n");
 	}
 
 	switch (op->t->type) {
@@ -73,8 +73,7 @@ void compile_op(compiler_T* c, ast_node_T* node) {
 			break;
 
 		default:
-			printf("Unreachable code in compile_op");
-			exit(1);
+			log_error(1, "Unreachable code in compile_op");
 	}
 
 	c->stack_pointer -= 1;
@@ -122,8 +121,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 					break;
 
 				default:
-					printf("Unreachable code in compile_value\n");
-					exit(1);
+					log_error(1, "Unreachable code in compile_value\n");
 			}
 			break;
 
@@ -154,8 +152,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 						break;
 
 					default:
-						printf("Unreachable code in compile_value\n");
-						exit(1);
+						log_error(1, "Unreachable code in compile_value\n");
 				}
 				break;
 			}
@@ -176,8 +173,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 			}
 
 		default:
-			printf("Unreachable code in compile_value\n");
-			exit(1);
+			log_error(1, "Unreachable code in compile_value\n");
 	}
 }
 
@@ -193,8 +189,7 @@ void compile_bin_op(compiler_T* c, ast_node_T* node) {
 			break;
 
 		default:
-			printf("Unexpected node in bin_op. Found: %s, expects: %s or %s.\n", ast_get_name(bin_op->rhs->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_VALUE));
-			exit(1);
+			log_error(1, "Unexpected node in bin_op. Found: %s, expects: %s or %s.\n", ast_get_name(bin_op->rhs->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_VALUE));
 	}
 
 	compile_value(c, bin_op->lhs);
@@ -214,13 +209,11 @@ void compile_dump(compiler_T* c, ast_node_T* node) {
 			break;
 
 		default:
-			printf("Unexpected node in dump. Found: %s, expects: %s or %s.\n", ast_get_name(dump->value->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_VALUE));
-			exit(1);
+			log_error(1, "Unexpected node in dump. Found: %s, expects: %s or %s.\n", ast_get_name(dump->value->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_VALUE));
 	}
 
 	if (c->stack_pointer < 1) {
-		printf("Stack pointer to small for dump operation.\n");
-		exit(1);
+		log_error(1, "Stack pointer to small for dump operation.\n");
 	}
 	
 	append_file(c->file, "    ; -- dump --\n");
@@ -231,8 +224,7 @@ void compile_dump(compiler_T* c, ast_node_T* node) {
 void compile_cond_op(compiler_T* c, ast_node_T* node) {
 	ast_cond_op_T* cond_op = (ast_cond_op_T*) node;
 	if (c->stack_pointer < 2) {
-		printf("Stack pointer to small for conditional operation.\n");
-		exit(1);
+		log_error(1, "Stack pointer to small for conditional operation.\n");
 	}
 
 	switch (cond_op->t->type) {
@@ -259,8 +251,7 @@ void compile_cond_op(compiler_T* c, ast_node_T* node) {
 			break;
 
 		default:
-			printf("Unreachable code in compile_cond_op\n");
-			exit(1);
+			log_error(1, "Unreachable code in compile_cond_op\n");
 
 	}
 
@@ -307,8 +298,7 @@ void compile_else(compiler_T* c, ast_node_T* node) {
 			break;
 
 		default:
-			printf("Unexpected ast type for compile_else. Found: %s\n", ast_get_name(elze->block->type));
-			exit(1);
+			log_error(1, "Unexpected ast type for compile_else. Found: %s\n", ast_get_name(elze->block->type));
 
 	}
 }
@@ -371,8 +361,7 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 	ast_assign_T* a = (ast_assign_T*) node;
 	symbol_T* sym = symbol_table_get(c->s_table, a->ident->value);
 	if (sym == NULL) {
-		printf("Uninitialized symbol '%s' used in compile_assign\n", token_get_name(a->ident->type));
-		exit(1);
+		log_error(1, "Uninitialized symbol '%s' used in compile_assign\n", token_get_name(a->ident->type));
 	}
 	switch (sym->type) {
 		case SYM_VAR:
@@ -381,8 +370,7 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 			} else if (a->value->type == AST_BIN_OP) {
 				compile_bin_op(c, a->value);
 			} else {
-				printf("Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
-				exit(1);
+				log_error(1, "Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
 			}
 
 			symbol_var_T* var_sym = (symbol_var_T*) sym;
@@ -397,9 +385,7 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 			break;
 
 		default:
-			printf("Unexpected symbol type in assignment. Found %s, expected %s.\n", symbol_get_type_string(sym->type), symbol_get_type_string(SYM_VAR));
-			exit(1);
-
+			log_error(1, "Unexpected symbol type in assignment. Found %s, expected %s.\n", symbol_get_type_string(sym->type), symbol_get_type_string(SYM_VAR));
 	}
 
 }
@@ -423,8 +409,7 @@ void compile_sys_arg(compiler_T* c, ast_node_T* node) {
 			break;
 
 		default:
-			printf("Invalid node type in compile_param. Found: %s\n", ast_get_name(node->type));
-			exit(1);
+			log_error(1, "Invalid node type in compile_param. Found: %s\n", ast_get_name(node->type));
 	}
 }
 
@@ -433,11 +418,9 @@ void compile_syscall(compiler_T* c, ast_node_T* node) {
 	ast_syscall_T* syscall = (ast_syscall_T*) node;
 
 	if (syscall->count < 1) {
-		printf("Not enough params for syscall\n");
-		exit(1);
+		log_error(1, "Not enough params for syscall\n");
 	} else if (syscall->count > 7) {
-		printf("Too many params for syscall\n");
-		exit(1);
+		log_error(1, "Too many params for syscall\n");
 	}
 
 	append_file(c->file, "    ; -- syscall --\n");
@@ -482,12 +465,10 @@ void compile_syscall(compiler_T* c, ast_node_T* node) {
 void compile_func_param(compiler_T* c, token_T* node, size_t param_index) {
 	symbol_T* sym = symbol_table_get(c->s_table, node->value);
 	if (sym == NULL) {
-		printf("Could not find symbol '%s' in symbol_table\n", node->value);
-		exit(1);
+		log_error(1, "Could not find symbol '%s' in symbol_table\n", node->value);
 	}
 	if (sym->type != SYM_VAR) {
-		printf("Unexpected symbol type found when compiling function params. Found %s, expected %s\n", symbol_get_type_string(sym->type), symbol_get_type_string(SYM_VAR));
-		exit(1);
+		log_error(1, "Unexpected symbol type found when compiling function params. Found %s, expected %s\n", symbol_get_type_string(sym->type), symbol_get_type_string(SYM_VAR));
 	}
 
 	symbol_var_T* param_sym = (symbol_var_T*) sym;
@@ -574,8 +555,7 @@ void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
 		case AST_OP:
 		case AST_DUMP:
 		case AST_NO_OP:
-			printf("Invalid node in function call argument. Found %s\n", ast_get_name(node->type));
-			exit(1);
+			log_error(1, "Invalid node in function call argument. Found %s\n", ast_get_name(node->type));
 	}
 
 	switch (param_index) {
@@ -661,8 +641,7 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 		case AST_PROGRAM:
 		case AST_CONDITIONAL:
 		case AST_COND_OP:
-			printf("Unexpected node in expr, found: %s.\n", ast_get_name(expr->child->type));
-			exit(1);
+			log_error(1, "Unexpected node in expr, found: %s.\n", ast_get_name(expr->child->type));
 	}
 }
 
@@ -675,8 +654,7 @@ void compile_program(compiler_T* c, ast_node_T* node) {
 			compile_expr(c, program->expressions[i]);
 		}
 	} else {
-		printf("Unexpected node to start program.\n Found: %s, expects: %s.\n", ast_get_name(node->type), ast_get_name(AST_PROGRAM));
-		exit(1);
+		log_error(1, "Unexpected node to start program.\n Found: %s, expects: %s.\n", ast_get_name(node->type), ast_get_name(AST_PROGRAM));
 	}
 }
 
