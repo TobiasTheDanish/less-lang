@@ -10,6 +10,7 @@ typedef enum AST_NODE_E {
 	AST_EXPR,
 	AST_SYSCALL,
 	AST_VAR_DECL,
+	AST_CONST_DECL,
 	AST_FUNC_DECL,
 	AST_FUNC_CALL,
 	AST_ASSIGN,
@@ -72,6 +73,13 @@ typedef struct AST_NODE_VAR_DECL {
 	ast_node_T base;
 	ast_node_T* assign;
 } ast_var_decl_T;
+
+typedef struct AST_NODE_CONST_DECL {
+	ast_node_T base;
+	token_T* ident;
+	ast_node_T* value;
+	char* type;
+} ast_const_decl_T;
 
 typedef struct AST_NODE_ASSIGN {
 	ast_node_T base;
@@ -144,6 +152,7 @@ ast_node_T* ast_new_syscall(ast_node_T** params, size_t count);
 ast_node_T* ast_new_func_decl(token_T* ident, token_T** params, size_t param_count, ast_node_T* block);
 ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_count);
 ast_node_T* ast_new_var_decl(ast_node_T* assign);
+ast_node_T* ast_new_const_decl(token_T* ident, ast_node_T* value, char* type);
 ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value);
 ast_node_T* ast_new_while(size_t index, ast_node_T* cond, ast_node_T* block);
 ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_node_T* elze);

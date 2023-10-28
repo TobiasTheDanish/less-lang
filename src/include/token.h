@@ -21,6 +21,7 @@ typedef enum TOKEN_E {
 	T_LESS,
 	T_GREATER,
 	T_LET,
+	T_CONST,
 	T_FUNC,
 	T_ASSIGN,
 	T_IDENT,

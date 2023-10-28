@@ -9,7 +9,7 @@ void call_cmd(const char* command) {
 	printf("[CMD]: %s\n", command);
 	int code = system(command);
 	if (code) {
-		log_error(code, "Command: '%s' exited with errorcode %d\n", command, code);
+		log_error(NULL, code, "Command: '%s' exited with errorcode %d\n", command, code);
 	}
 }
 

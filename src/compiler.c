@@ -1,5 +1,7 @@
 #include "include/compiler.h"
 #include "include/ast_nodes.h"
+#include "include/data_constant.h"
+#include "include/data_table.h"
 #include "include/file_util.h"
 #include "include/logger.h"
 #include "include/string_util.h"
@@ -110,11 +112,15 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 						append_file(c->file, var_type->operand);
 
 						char str[20];
-							if (!var_sym->is_param) {
+							if (!var_sym->is_param && !var_sym->is_const) {
 								snprintf(str, 20, " [mem+%zu]\n", (var_type->size * (var_sym->index+1)));
-							} else {
+							} else if (var_sym->is_param) {
 								snprintf(str, 20, " [rbp-%zu]\n", (var_type->size * (var_sym->index+1)));
+							} else if (var_sym->is_const) {
+								size_t index = data_table_get_index(c->data_table, var_sym->const_val);
+								snprintf(str, 20, " [const%zu]\n", index);
 							}
+
 						append_file(c->file, str);
 						c->stack_pointer += 1;
 					}
@@ -141,10 +147,13 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 							append_file(c->file, var_type->operand);
 
 							char str[20];
-							if (!var_sym->is_param) {
+							if (!var_sym->is_param && !var_sym->is_const) {
 								snprintf(str, 20, " mem+%zu\n", (var_type->size * (var_sym->index+1)));
-							} else {
+							} else if (var_sym->is_param) {
 								snprintf(str, 20, " rbp-%zu\n", (var_type->size * (var_sym->index+1)));
+							} else if (var_sym->is_const) {
+								size_t index = data_table_get_index(c->data_table, var_sym->const_val);
+								snprintf(str, 20, " const%zu\n", index);
 							}
 							append_file(c->file, str);
 							c->stack_pointer += 1;
@@ -166,7 +175,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 				size_t index = data_table_get_index(c->data_table, value->t->value);
 				append_file(c->file, "    push ");
 				char str[20];
-				snprintf(str, 20, "str%zu\n", index);
+				snprintf(str, 20, "const%zu\n", index);
 				append_file(c->file, str);
 				c->stack_pointer += 1;
 				break;
@@ -710,18 +719,26 @@ void compile(compiler_T* c) {
 
 	append_file(c->file, "segment .data\n");
 	for (size_t i = 0; i < c->data_table->count; i++) {
-		token_T* token = c->data_table->data[i];
-		decode_escaped_characters(token->value);
-		char s[25];
-		snprintf(s, 25, "    str%zu: db ", i);
-		append_file(c->file, s);
-		for (int j = 0; token->value[j] != '\0'; j++) {
-			char ch[6];
-			snprintf(ch, 6, "%d, ", token->value[j]);
-			append_file(c->file, ch);
+		data_const_T* data = c->data_table->data[i];
+
+		if (strcmp(data->type, "string") == 0) {
+			char s[25];
+			snprintf(s, 25, "    const%zu: db ", i);
+			append_file(c->file, s);
+			decode_escaped_characters(data->t->value);
+			for (int j = 0; data->t->value[j] != '\0'; j++) {
+				char ch[6];
+				snprintf(ch, 6, "%d, ", data->t->value[j]);
+				append_file(c->file, ch);
+			}
+			append_file(c->file, "0\n");
+		} else if (strcmp(data->type, "int") == 0) {
+			char s[25];
+			snprintf(s, 25, "    const%zu: dq ", i);
+			append_file(c->file, s);
+			append_file(c->file, data->t->value);
+			append_file(c->file, "\n");
 		}
-		append_file(c->file, "0\n");
-		
 	}
 
 	close_file(c->file);

@@ -55,7 +55,7 @@ token_T* read_ident(lexer_T* lexer, location_T* loc) {
 
 		value = realloc(value, (i + 1) * sizeof(char));
 		advance(lexer);
-	} while (isalnum(lexer->c));
+	} while (isalnum(lexer->c) || lexer->c == '_');
 
 	if (strcmp("else", value) == 0) {
 		return token_new(T_ELSE, value, loc);
@@ -63,6 +63,8 @@ token_T* read_ident(lexer_T* lexer, location_T* loc) {
 		return token_new(T_DUMP, value, loc);
 	} else if (strcmp("let", value) == 0) {
 		return token_new(T_LET, value, loc);
+	} else if (strcmp("const", value) == 0) {
+		return token_new(T_CONST, value, loc);
 	} else if (strcmp("while", value) == 0) {
 		return token_new(T_WHILE, value, loc);
 	} else if (strcmp("syscall", value) == 0) {
@@ -129,7 +131,7 @@ token_T* read_pointer(lexer_T* lexer, location_T* loc) {
 	char* value = calloc(1, sizeof(char));
 	size_t i = 0;
 
-	while (isalnum(lexer->c)) {
+	while (isalnum(lexer->c) || lexer->c == '_') {
 		value[i++] = lexer->c;
 
 		value = realloc(value, (i + 1) * sizeof(char));
@@ -189,7 +191,7 @@ token_T* lexer_next_token(lexer_T* lexer) {
 			return read_pointer(lexer, loc);
 		}
 
-		if (isalpha(lexer->c)) {
+		if (isalpha(lexer->c) || lexer->c == '_') {
 			if (lexer->c == 'i' && peek(lexer) == 'f') {
 				return read_if(lexer, loc);
 			}
@@ -269,7 +271,7 @@ token_T* lexer_next_token(lexer_T* lexer) {
 				return advance_with_token(lexer, T_GREATER, loc);
 		
 			default:
-				log_warning("Unexpected character when lexing: '%c'.\n", lexer->c);
+				log_warning("Unexpected character when lexing: '%c' '%s'.\n", lexer->c, lexer->c);
 				return token_new(T_EOF, "EOF", loc);
 		}
 	}

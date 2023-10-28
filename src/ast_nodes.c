@@ -82,10 +82,22 @@ ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_
 ast_node_T* ast_new_var_decl(ast_node_T* assign) {
 	ast_node_T* base = ast_new(AST_VAR_DECL, NULL);
 
-	ast_var_decl_T* decl = malloc(sizeof(ast_var_decl_T*));
+	ast_var_decl_T* decl = malloc(sizeof(ast_var_decl_T));
 	decl->base = *base;
 	decl->assign = assign;
 	
+	return (ast_node_T*) decl;
+}
+
+ast_node_T* ast_new_const_decl(token_T* ident, ast_node_T* value, char* type) {
+	ast_node_T* base = ast_new(AST_CONST_DECL, ident->loc);
+
+	ast_const_decl_T* decl = malloc(sizeof(ast_const_decl_T));
+	decl->base = *base;
+	decl->ident = ident;
+	decl->value = value;
+	decl->type = type;
+
 	return (ast_node_T*) decl;
 }
 
@@ -206,6 +218,7 @@ char* ast_get_name(ast_node_E type) {
 		"Expression", 
 		"Syscall", 
 		"Variable declaration", 
+		"Constant declaration", 
 		"Function declaration", 
 		"Function call", 
 		"Assign", 

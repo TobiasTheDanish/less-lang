@@ -1,9 +1,12 @@
+const sys_write = 1;
+const std_out = 1;
+
 func add(a: int, b: int) {
 	dump a + b;
 }
 
 func print(s: string) {
-	syscall(1, 1, s, 30);
+	syscall(sys_write, std_out, s, 30);
 }
 
 func main() {
@@ -11,4 +14,5 @@ func main() {
 	add(num, 34);
 	add(380, 40);
 	print("Hello world!\n");
+	std_out = 2;
 }

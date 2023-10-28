@@ -18,8 +18,8 @@ symbol_table_T* symbol_table_new(char* name, size_t level, symbol_table_T* paren
 }
 
 void symbol_table_init_builtins(symbol_table_T* table) {
-	symbol_table_put(table, symbol_new_type("int", 8));
-	symbol_table_put(table, symbol_new_type("string", 8));
+	symbol_table_put(table, symbol_new_type("int", NULL, 8));
+	symbol_table_put(table, symbol_new_type("string", NULL, 8));
 }
 
 symbol_T* symbol_table_get(symbol_table_T* table, char* name) {

@@ -13,6 +13,7 @@ char* token_names[] = {
 	"Less than",
 	"Greater than",
 	"Let",
+	"Const",
 	"Func",
 	"Assign",
 	"Identifier",

@@ -1,5 +1,6 @@
 #include "include/parser.h"
 #include "include/ast_nodes.h"
+#include "include/data_table.h"
 #include "include/logger.h"
 #include "include/symbol.h"
 #include "include/symbol_table.h"
@@ -71,7 +72,7 @@ ast_node_T* value(parser_T* parser) {
 			consume(parser);
 			break;
 		case T_STRING:
-			data_table_put(parser->data_table, token);
+			data_table_put(parser->data_table, token, "string");
 			//printf("<%s, %s>\n", token->value, "string");
 			res = ast_new_value(token, symbol_table_get(parser->s_table, "string"));
 			consume(parser);
@@ -127,11 +128,11 @@ ast_node_T* bin_op(parser_T* parser) {
 		}
 	} else if (current->type == T_INTEGER || current->type == T_IDENT) {
 		rhs = value(parser);
-		ast_value_T* b = (ast_value_T*) rhs;
-		if (lhs->type_sym != NULL && b->type_sym != NULL && strcmp(lhs->type_sym->name, b->type_sym->name) == 0) {
+		ast_value_T* v = (ast_value_T*) rhs;
+		if (lhs->type_sym != NULL && v->type_sym != NULL && strcmp(lhs->type_sym->name, v->type_sym->name) == 0) {
 			type = (symbol_type_T*) lhs->type_sym;
 		} else {
-			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type_sym->name, b->type_sym->name);
+			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type_sym->name, v->type_sym->name);
 		}
 	} else {
 		log_error(current->loc, 1, "Invalid token type for rhs in bin_op. Found: %s, expected an identifier, value or bin_op\n", token_get_name(current->type));
@@ -266,6 +267,12 @@ ast_node_T* assign(parser_T* parser) {
 	token_T* ident = parser->tokens[parser->t_index];
 	if (symbol_table_contains(parser->s_table, ident->value)) {
 		symbol_var_T* symbol = (symbol_var_T*)symbol_table_get(parser->s_table, ident->value);
+		if (symbol->is_const) {
+			log_error(ident->loc, -1, "Cannot reassign constant identifier '%s'\n", ident->value);
+			location_T* loc = symbol->base.loc;
+			log_info("Constant identifier '%s' first defined here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
+			exit(1);
+		}
 		consume(parser);
 		consume(parser);
 		ast_node_T* v;
@@ -293,14 +300,39 @@ ast_node_T* var_decl(parser_T* parser) {
 	token_T* token = parser->tokens[parser->t_index];
 	if (!symbol_table_contains(parser->s_table, token->value)) {
 		char* name = token->value;
-		symbol_T* s = symbol_new_var(name, NULL, 0);
-
+		symbol_T* s = symbol_new_var(name, token->loc, NULL, 0, 0, 0);
 		symbol_table_put(parser->s_table, s);
+
 		ast_node_T* a = assign(parser);
+
 		consume(parser);
 		return ast_new_var_decl(a);
 	} else {
-		log_error(token->loc, 1, "Redeclaration of existing variable '%s'.\n", token->value);
+		log_error(token->loc, 1, "Redeclaration of existing identifier '%s'.\n", token->value);
+		return NULL; //unreachable
+	}
+}
+
+// const_decl : CONST ID '=' value ;
+ast_node_T* const_decl(parser_T* parser) {
+	consume(parser);
+	token_T* ident = parser->tokens[parser->t_index];
+	if (!symbol_table_contains(parser->s_table, ident->value)) {
+		consume(parser);
+		consume(parser);
+
+		ast_value_T* val = (ast_value_T*) value(parser);
+		
+		symbol_var_T* s = (symbol_var_T*) symbol_new_var(ident->value, ident->loc, val->type_sym, 0, 1, val->t->value);
+		symbol_table_put(parser->s_table, (symbol_T*)s);
+
+		data_table_put(parser->data_table, val->t, val->type_sym->name);
+
+		consume(parser);
+
+		return ast_new_const_decl(ident, (ast_node_T*)val, val->type_sym->name);
+	} else {
+		log_error(ident->loc, 1, "Redeclaration of existing identifier '%s'.\n", ident->value);
 		return NULL; //unreachable
 	}
 }
@@ -359,7 +391,7 @@ token_T* func_param(parser_T* parser, symbol_func_T* func) {
 		switch (type_sym->type) {
 			case SYM_VAR_TYPE:
 				{
-					symbol_T* var_sym = symbol_new_var(param->value, type_sym, 1);
+					symbol_T* var_sym = symbol_new_var(param->value, param->loc, type_sym, 1, 0, 0);
 					func_add_param(func, var_sym);
 					symbol_table_put(parser->s_table, var_sym);
 				}
@@ -380,7 +412,7 @@ token_T* func_param(parser_T* parser, symbol_func_T* func) {
 ast_node_T* func_decl(parser_T* parser) {
 	consume(parser);
 	token_T* ident = parser->tokens[parser->t_index];
-	symbol_T* func_sym = symbol_new_func(ident->value);
+	symbol_T* func_sym = symbol_new_func(ident->value, ident->loc);
 
 	symbol_table_T* func_table = symbol_table_new(ident->value, parser->s_table->level+1, parser->s_table);
 	symbol_table_T* parent = parser->s_table;
@@ -476,7 +508,7 @@ ast_node_T* func_call(parser_T* parser) {
 	return ast_new_func_call(ident, params, count);
 }
 
-// expr : syscall SEMI | if | while | var_decl | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
+// expr : syscall SEMI | if | while | var_decl | const_decl | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
 ast_node_T* expr(parser_T* parser) {
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T* child;
@@ -498,6 +530,9 @@ ast_node_T* expr(parser_T* parser) {
 			break;
 		case T_LET:
 			child = var_decl(parser);
+			break;
+		case T_CONST:
+			child = const_decl(parser);
 			break;
 		case T_FUNC:
 			child = func_decl(parser);
