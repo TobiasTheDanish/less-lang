@@ -1,4 +1,5 @@
 #include "include/logger.h"
+#include "include/token.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,7 +115,10 @@ void log_todo(const char* format, ...) {
 	va_end(args);
 }
 
-void log_error(int exitcode, const char* format, ...) {
+void log_error(location_T* loc, int exitcode, const char* format, ...) {
+	if (loc != NULL) {
+		printf("%s:%lu:%lu ", loc->filePath, loc->row, loc->col);
+	}
 	printf("[ERROR]: ");
 
 	va_list args;

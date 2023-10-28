@@ -32,11 +32,12 @@ char* token_names[] = {
 	"EOF"
 };
 
-token_T* token_new(token_E type, char* value) {
+token_T* token_new(token_E type, char* value, location_T* loc) {
 	token_T* token = malloc(sizeof(token_T));
 
 	token->type = type;
 	token->value = value;
+	token->loc = loc;
 
 	return token;
 }

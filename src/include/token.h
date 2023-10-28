@@ -3,6 +3,12 @@
 
 #include <stdbool.h>
 
+typedef struct LOCATION {
+	char* filePath;
+	unsigned long row;
+	unsigned long col;
+} location_T;
+
 typedef enum TOKEN_E {
 	T_INTEGER,
 	T_STRING,
@@ -37,9 +43,10 @@ typedef enum TOKEN_E {
 typedef struct TOKEN_T {
 	token_E type;
 	char* value;
+	location_T* loc;
 } token_T;
 
-token_T* token_new(token_E type, char* value);
+token_T* token_new(token_E type, char* value, location_T* loc);
 
 char* token_get_name(token_E type);
 

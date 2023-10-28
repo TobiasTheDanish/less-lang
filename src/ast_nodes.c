@@ -1,16 +1,16 @@
 #include "include/ast_nodes.h"
 #include <stdlib.h>
 
-ast_node_T* ast_new(ast_node_E type) {
+ast_node_T* ast_new(ast_node_E type, location_T* loc) {
 	ast_node_T* base = malloc(sizeof(ast_node_T));
 	base->type = type;
+	base->loc = loc;
 
 	return base;
 }
 
 ast_node_T* ast_new_program(ast_node_T** expressions, size_t count) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_PROGRAM;
+	ast_node_T* base = ast_new(AST_PROGRAM, NULL);
 
 	ast_program_T* program = malloc(sizeof(ast_program_T));
 	program->base = *base;
@@ -21,8 +21,7 @@ ast_node_T* ast_new_program(ast_node_T** expressions, size_t count) {
 }
 
 ast_node_T* ast_new_block(ast_node_T** expressions, size_t count) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_BLOCK;
+	ast_node_T* base = ast_new(AST_BLOCK, NULL);
 
 	ast_block_T* block = malloc(sizeof(ast_block_T));
 	block->base = *base;
@@ -33,8 +32,7 @@ ast_node_T* ast_new_block(ast_node_T** expressions, size_t count) {
 }
 
 ast_node_T* ast_new_expr(ast_node_T* child) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_EXPR;
+	ast_node_T* base = ast_new(AST_EXPR, NULL);
 
 	ast_expr_T* expr = malloc(sizeof(ast_expr_T));
 	expr->base = *base;
@@ -44,8 +42,7 @@ ast_node_T* ast_new_expr(ast_node_T* child) {
 }
 
 ast_node_T* ast_new_syscall(ast_node_T** params, size_t count) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_SYSCALL;
+	ast_node_T* base = ast_new(AST_SYSCALL, NULL);
 
 	ast_syscall_T* syscall = malloc(sizeof(ast_syscall_T));
 	syscall->base = *base;
@@ -56,8 +53,7 @@ ast_node_T* ast_new_syscall(ast_node_T** params, size_t count) {
 }
 
 ast_node_T* ast_new_func_decl(token_T* ident, token_T** params, size_t param_count, ast_node_T* block) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_FUNC_DECL;
+	ast_node_T* base = ast_new(AST_FUNC_DECL, ident->loc);
 
 	ast_func_decl_T* func_decl = malloc(sizeof(ast_func_decl_T));
 	func_decl->base = *base;
@@ -71,8 +67,7 @@ ast_node_T* ast_new_func_decl(token_T* ident, token_T** params, size_t param_cou
 
 
 ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_count) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_FUNC_CALL;
+	ast_node_T* base = ast_new(AST_FUNC_CALL, ident->loc);
 
 	ast_func_call_T* func_call = malloc(sizeof(ast_func_call_T));
 	func_call->base = *base;
@@ -85,8 +80,7 @@ ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_
 
 
 ast_node_T* ast_new_var_decl(ast_node_T* assign) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_VAR_DECL;
+	ast_node_T* base = ast_new(AST_VAR_DECL, NULL);
 
 	ast_var_decl_T* decl = malloc(sizeof(ast_var_decl_T*));
 	decl->base = *base;
@@ -96,8 +90,7 @@ ast_node_T* ast_new_var_decl(ast_node_T* assign) {
 }
 
 ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_ASSIGN;
+	ast_node_T* base = ast_new(AST_ASSIGN, ident->loc);
 
 	ast_assign_T* assign = malloc(sizeof(ast_assign_T));
 	assign->base = *base;
@@ -108,8 +101,7 @@ ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value) {
 }
 
 ast_node_T* ast_new_while(size_t index, ast_node_T* cond, ast_node_T* block) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_WHILE;
+	ast_node_T* base = ast_new(AST_WHILE, NULL);
 
 	ast_while_T* w = malloc(sizeof(ast_while_T));
 	w->base = *base;
@@ -121,8 +113,7 @@ ast_node_T* ast_new_while(size_t index, ast_node_T* cond, ast_node_T* block) {
 }
 
 ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_node_T* elze){
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_IF;
+	ast_node_T* base = ast_new(AST_IF, NULL);
 
 	ast_if_T* if_node = malloc(sizeof(ast_if_T));
 	if_node->base = *base;
@@ -135,8 +126,7 @@ ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_no
 }
 
 ast_node_T* ast_new_else(size_t index, ast_node_T* block){
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_ELSE;
+	ast_node_T* base = ast_new(AST_ELSE, NULL);
 
 	ast_else_T* elze = malloc(sizeof(ast_else_T));
 	elze->base = *base;
@@ -147,8 +137,7 @@ ast_node_T* ast_new_else(size_t index, ast_node_T* block){
 }
 
 ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_CONDITIONAL;
+	ast_node_T* base = ast_new(AST_CONDITIONAL, NULL);
 
 	ast_cond_T* cond = malloc(sizeof(ast_cond_T));
 	cond->base = *base;
@@ -160,8 +149,7 @@ ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs) {
 }
 
 ast_node_T* ast_new_cond_op(token_T* t) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_COND_OP;
+	ast_node_T* base = ast_new(AST_COND_OP, t->loc);
 
 	ast_cond_op_T* op = malloc(sizeof(ast_cond_op_T));
 	op->base = *base;
@@ -170,8 +158,7 @@ ast_node_T* ast_new_cond_op(token_T* t) {
 }
 
 ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, symbol_T* type) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_BIN_OP;
+	ast_node_T* base = ast_new(AST_BIN_OP, NULL);
 
 	ast_bin_op_T* bin_op = malloc(sizeof(ast_bin_op_T));
 	bin_op->base = *base;
@@ -184,8 +171,7 @@ ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, sym
 }
 
 ast_node_T* ast_new_dump(ast_node_T* value) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_DUMP;
+	ast_node_T* base = ast_new(AST_DUMP, NULL);
 
 	ast_dump_T* dump = malloc(sizeof(ast_dump_T));
 	dump->base = *base;
@@ -195,8 +181,7 @@ ast_node_T* ast_new_dump(ast_node_T* value) {
 }
 
 ast_node_T* ast_new_op(token_T* t) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_OP;
+	ast_node_T* base = ast_new(AST_OP, t->loc);
 
 	ast_op_T* op = malloc(sizeof(ast_op_T));
 	op->base = *base;
@@ -205,8 +190,7 @@ ast_node_T* ast_new_op(token_T* t) {
 }
 
 ast_node_T* ast_new_value(token_T* t, symbol_T* type) {
-	ast_node_T* base = malloc(sizeof(ast_node_T));
-	base->type = AST_VALUE;
+	ast_node_T* base = ast_new(AST_VALUE, t->loc);
 
 	ast_value_T* value = malloc(sizeof(ast_value_T));
 	value->base = *base;

@@ -3,10 +3,12 @@
 
 #include "token.h"
 #include <stddef.h>
+
 typedef struct LEXER_STRUCT {
 	char* content;
 	char c;
 	size_t i;
+	location_T* loc;
 } lexer_T;
 
 lexer_T* lexer_from_file(char* filePath);

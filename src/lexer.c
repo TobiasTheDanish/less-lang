@@ -15,6 +15,8 @@ lexer_T* lexer_from_file(char* filePath){
 	lexer->content = content;
 	lexer->i = 0;
 	lexer->c = content[0];
+	lexer->loc = calloc(1, sizeof(location_T));
+	lexer->loc->filePath = filePath;
 
 	return lexer;
 }
@@ -24,16 +26,25 @@ lexer_T* lexer_from_string(char* content) {
 	lexer->content = content;
 	lexer->i = 0;
 	lexer->c = content[0];
+	lexer->loc = calloc(1, sizeof(location_T));
+	lexer->loc->filePath = "String literal";
 
 	return lexer;
 }
 
 void advance(lexer_T* lexer) {
+	if (lexer->c == '\n') {
+		lexer->loc->col = 0;
+		lexer->loc->row += 1;
+	} else {
+		lexer->loc->col += 1;
+	}
+
 	lexer->i += 1;
 	lexer->c = lexer->content[lexer->i];
 }
 
-token_T* read_ident(lexer_T* lexer) {
+token_T* read_ident(lexer_T* lexer, location_T* loc) {
 	char* value = calloc(2, sizeof(char));
 	size_t i = 0;
 
@@ -45,23 +56,23 @@ token_T* read_ident(lexer_T* lexer) {
 	} while (isalnum(lexer->c));
 
 	if (strcmp("else", value) == 0) {
-		return token_new(T_ELSE, value);
+		return token_new(T_ELSE, value, loc);
 	} else if (strcmp("dump", value) == 0) {
-		return token_new(T_DUMP, value);
+		return token_new(T_DUMP, value, loc);
 	} else if (strcmp("let", value) == 0) {
-		return token_new(T_LET, value);
+		return token_new(T_LET, value, loc);
 	} else if (strcmp("while", value) == 0) {
-		return token_new(T_WHILE, value);
+		return token_new(T_WHILE, value, loc);
 	} else if (strcmp("syscall", value) == 0) {
-		return token_new(T_SYSCALL, value);
+		return token_new(T_SYSCALL, value, loc);
 	} else if (strcmp("func", value) == 0) {
-		return token_new(T_FUNC, value);
+		return token_new(T_FUNC, value, loc);
 	}
 
-	return token_new(T_IDENT, value);
+	return token_new(T_IDENT, value, loc);
 }
 
-token_T* read_number(lexer_T* lexer) {
+token_T* read_number(lexer_T* lexer, location_T* loc) {
 	char* value = calloc(2, sizeof(char));
 	size_t i = 0;
 
@@ -72,7 +83,7 @@ token_T* read_number(lexer_T* lexer) {
 		advance(lexer);
 	}
 
-	return token_new(T_INTEGER, value);
+	return token_new(T_INTEGER, value, loc);
 
 }
 
@@ -101,17 +112,17 @@ void skip_multiline_comment(lexer_T* lexer) {
 	advance(lexer);
 }
 
-token_T* read_if(lexer_T* lexer) {
+token_T* read_if(lexer_T* lexer, location_T* loc) {
 	char* str = calloc(3, sizeof(char));
 	for (size_t i = 0; i < 2; i++) {
 		str[i] = lexer->c;
 		advance(lexer);
 	}
 
-	return token_new(T_IF, str);
+	return token_new(T_IF, str, loc);
 }
 
-token_T* read_pointer(lexer_T* lexer) {
+token_T* read_pointer(lexer_T* lexer, location_T* loc) {
 	advance(lexer);
 	char* value = calloc(1, sizeof(char));
 	size_t i = 0;
@@ -123,10 +134,10 @@ token_T* read_pointer(lexer_T* lexer) {
 		advance(lexer);
 	}
 
-	return token_new(T_POINTER, value);
+	return token_new(T_POINTER, value, loc);
 }
 
-token_T* read_string(lexer_T* lexer) {
+token_T* read_string(lexer_T* lexer, location_T* loc) {
 	advance(lexer);
 	char* value = calloc(1, sizeof(char));
 	size_t i = 0;
@@ -146,13 +157,13 @@ token_T* read_string(lexer_T* lexer) {
 	}
 	advance(lexer);
 
-	return token_new(T_STRING, value);
+	return token_new(T_STRING, value, loc);
 }
 
-token_T* advance_with_token(lexer_T* lexer, token_E type) {
+token_T* advance_with_token(lexer_T* lexer, token_E type, location_T* loc) {
 	char* val = calloc(2, sizeof(char));
 	val[0] = lexer->c;
-	token_T* t = token_new(type, val);
+	token_T* t = token_new(type, val, loc);
 	advance(lexer);
 	return t;
 }
@@ -165,44 +176,47 @@ token_T* lexer_next_token(lexer_T* lexer) {
 			continue;
 		}
 
+		location_T* loc = malloc(sizeof(location_T));
+		memcpy(loc, lexer->loc, sizeof(location_T));
+
 		if (lexer->c == '"') {
-			return read_string(lexer);
+			return read_string(lexer, loc);
 		}
 
 		if (lexer->c == '&') {
-			return read_pointer(lexer);
+			return read_pointer(lexer, loc);
 		}
 
 		if (isalpha(lexer->c)) {
 			if (lexer->c == 'i' && peek(lexer) == 'f') {
-				return read_if(lexer);
+				return read_if(lexer, loc);
 			}
 
-			return read_ident(lexer);
+			return read_ident(lexer, loc);
 		}
 		
 		if (isdigit(lexer->c)) {
-			return read_number(lexer);
+			return read_number(lexer, loc);
 		}
 
 		switch (lexer->c) {
 			case ':':
-				return advance_with_token(lexer, T_COLON);
+				return advance_with_token(lexer, T_COLON, loc);
 
 			case ';':
-				return advance_with_token(lexer, T_SEMI);
+				return advance_with_token(lexer, T_SEMI, loc);
 
 			case ',':
-				return advance_with_token(lexer, T_COMMA);
+				return advance_with_token(lexer, T_COMMA, loc);
 
 			case '+':
-				return advance_with_token(lexer, T_PLUS);
+				return advance_with_token(lexer, T_PLUS, loc);
 
 			case '-':
-				return advance_with_token(lexer, T_MINUS);
+				return advance_with_token(lexer, T_MINUS, loc);
 
 			case '*':
-				return advance_with_token(lexer, T_MULTIPLY);
+				return advance_with_token(lexer, T_MULTIPLY, loc);
 
 			case '/':
 				{
@@ -215,49 +229,49 @@ token_T* lexer_next_token(lexer_T* lexer) {
 							skip_multiline_comment(lexer);
 							break;
 						default:
-							return advance_with_token(lexer, T_DIVIDE);
+							return advance_with_token(lexer, T_DIVIDE, loc);
 					}
 					break;
 				}
 
 			case '%':
-				return advance_with_token(lexer, T_MODULUS);
+				return advance_with_token(lexer, T_MODULUS, loc);
 
 			case '{':
-				return advance_with_token(lexer, T_LCURLY);
+				return advance_with_token(lexer, T_LCURLY, loc);
 
 			case '}':
-				return advance_with_token(lexer, T_RCURLY);
+				return advance_with_token(lexer, T_RCURLY, loc);
 
 			case '(':
-				return advance_with_token(lexer, T_LPAREN);
+				return advance_with_token(lexer, T_LPAREN, loc);
 
 			case ')':
-				return advance_with_token(lexer, T_RPAREN);
+				return advance_with_token(lexer, T_RPAREN, loc);
 
 			case '=':
 				{
 					if (peek(lexer) == '=') {
 						advance(lexer);
 						advance(lexer);
-						return token_new(T_EQUALS, "==");
+						return token_new(T_EQUALS, "==", loc);
 					} else {
-						return advance_with_token(lexer, T_ASSIGN);
+						return advance_with_token(lexer, T_ASSIGN, loc);
 					}
 				}
 
 			case '<':
-				return advance_with_token(lexer, T_LESS);
+				return advance_with_token(lexer, T_LESS, loc);
 
 			case '>':
-				return advance_with_token(lexer, T_GREATER);
+				return advance_with_token(lexer, T_GREATER, loc);
 		
 			default:
 				log_warning("Unexpected character when lexing: '%c'.\n", lexer->c);
-				return token_new(T_EOF, "EOF");
+				return token_new(T_EOF, "EOF", loc);
 		}
 	}
 
-	return token_new(T_EOF, "EOF");
+	return token_new(T_EOF, "EOF", lexer->loc);
 }
 
