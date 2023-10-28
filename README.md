@@ -17,15 +17,17 @@ You can run the following commands to compile one of the example scripts in the 
 ```bash
 make #builds the compiler
 
-./lessl tests/02-conditionals.l -o output/program #compiles one of the test programs
+./lessl examples/fizzbuzz.l -o output/program #compiles one of the test programs
 ```
 
 The 'lessl' executable, produced by the make command, first compiles the program to assembly, then assembles and links that assembly.
 
-To see the usage of the executable, simply execute the command with no arguments.
+To see the usage of the executable, use one of the following commands:
 
 ```bash
-./less
+./lessl
+
+./lessl -h
 ```
 
 
