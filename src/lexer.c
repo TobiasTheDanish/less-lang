@@ -17,6 +17,8 @@ lexer_T* lexer_from_file(char* filePath){
 	lexer->c = content[0];
 	lexer->loc = calloc(1, sizeof(location_T));
 	lexer->loc->filePath = filePath;
+	lexer->loc->col = 1;
+	lexer->loc->row = 1;
 
 	return lexer;
 }
@@ -34,7 +36,7 @@ lexer_T* lexer_from_string(char* content) {
 
 void advance(lexer_T* lexer) {
 	if (lexer->c == '\n') {
-		lexer->loc->col = 0;
+		lexer->loc->col = 1;
 		lexer->loc->row += 1;
 	} else {
 		lexer->loc->col += 1;
