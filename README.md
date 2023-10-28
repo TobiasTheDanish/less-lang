@@ -77,10 +77,31 @@ C-style syntax
 
 ### Variables
 
-A variable is declared with the 'let' keyword, and (for now) has to be assigned a value at declaration, example:
+A variable is declared with the 'let' keyword, and can be reassigned later in the program, example:
 
 ```javascript
-let fortyTwo = 42;
+let num = 42;
+num = 34 + 35;
+```
+For now a variable has to be assigned a value at declaration.
+
+
+
+---
+
+
+
+### Constants
+
+A constant is unlike a variable, not able to be reassigned. It also have to be assigned a value that is known at compile time.
+
+```javascript
+const someConst = someVar; // This is invalid, since someVar is not known at compile time
+const stdout = 1;
+
+...
+
+stdout = 2; // Also invalid, compilation will fail.
 ```
 
 
