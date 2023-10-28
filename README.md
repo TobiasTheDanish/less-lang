@@ -1,4 +1,4 @@
-# Less programming language #
+# less-lang #
 
 A toy language developed for fun and as a way to learn about building compilers.
 Less only supports linux, and will probably only support linux (x86_64 to be more precise).
@@ -11,7 +11,7 @@ Less only supports linux, and will probably only support linux (x86_64 to be mor
 
 ## Usage
 
-To compile and assemble a Less file (suffixed '.l'), for now a shell script is needed.
+To compile and assemble a less-lang file (suffixed '.l'), for now a shell script is needed.
 You can run the following commands to compile one of the example scripts in the 'tests' directory:
 
 ```bash
@@ -93,7 +93,7 @@ For now a variable has to be assigned a value at declaration.
 
 ### Constants
 
-A constant is unlike a variable, not able to be reassigned. It also have to be assigned a value that is known at compile time.
+A constant is (unlike variables) not able to be reassigned. It also has to be assigned a value that is known at compile time.
 
 ```javascript
 const someConst = someVar; // This is invalid, since someVar is not known at compile time
@@ -112,7 +112,7 @@ stdout = 2; // Also invalid, compilation will fail.
 
 ### Arithmetic
 
-Less supports basic arithmetic, '+', '-', '*', '/'. However, the mathematical order of precedence i currently not followed.
+less-lang supports basic arithmetic, '+', '-', '*', '/'. However, the mathematical order of precedence i currently not followed.
 
 ```javascript
 let fortyTwo = 22 + 20;
@@ -203,7 +203,7 @@ func main() {
 Functions are declared by the 'func' keyword, followed by the name of the function,
 the functions parameters inclosed by parentheses, and the function block itself, enclosed in curly brackets.
 
-Any less program needs a main function to allow it to be compiled and executed, e.g:
+Any less-lang program needs a main function to allow it to be compiled and executed, e.g:
 ```go
 func print(str: string) {
     syscall(1,1,str,50);
