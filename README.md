@@ -77,11 +77,16 @@ C-style syntax
 
 ### Variables
 
-A variable is declared with the 'let' keyword, and can be reassigned later in the program, example:
+A variable is declared with the 'let' keyword.
 
-```javascript
+Variables are by default immutable, if you wish to reassign a variable, add the 'mut' keyword to the declaration, example:
+
+```rust
 let num = 42;
-num = 34 + 35;
+num = 34 + 35; // This doesn't compile, since num is attempted to be reassigned, but not marked as mutabled
+
+let mut mut_num = 42;
+mut_num = 34 + 35; // This compiles and reassigns mut_num;
 ```
 For now a variable has to be assigned a value at declaration.
 
@@ -93,10 +98,14 @@ For now a variable has to be assigned a value at declaration.
 
 ### Constants
 
-A constant is (unlike variables) not able to be reassigned. It also has to be assigned a value that is known at compile time.
+A constant is, like immutable variables, not able to be reassigned. 
+
+A constant is stored in the data segment of the program's memory while a variable is stored on the stack.
+
+Constants also has to be assigned values that is known at compile time.
 
 ```javascript
-const someConst = someVar; // This is invalid, since someVar is not known at compile time
+const someConst = someVar; // This is invalid, since someVar is not a value known at compile time
 const stdout = 1;
 
 ...
