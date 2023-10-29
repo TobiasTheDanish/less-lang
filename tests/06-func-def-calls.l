@@ -7,14 +7,14 @@ func print(s: string) {
 
 func add(a: int, b: int) {
 	let num = a+b;
-	print("num from add: ");
 	dump num;
 }
 
 func main() {
-	let num1 = 35;
-	let num2 = 34;
+	let mut num1 = 35;
+	let mut num2 = 34;
 	add(num1, num2);
-	print("num2 from main: ");
-	dump num2;
+	num1 = 80;
+	num2 = 340;
+	add(num1, num2);
 }

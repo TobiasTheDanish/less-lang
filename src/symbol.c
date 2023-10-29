@@ -40,12 +40,14 @@ symbol_T* symbol_new_type(char* name, location_T* loc, size_t size) {
 	return (symbol_T*) s;
 }
 
-symbol_T* symbol_new_var(char* name, location_T* loc, symbol_T* type, unsigned char is_param, unsigned char is_const, char* const_val) {
+symbol_T* symbol_new_var(char* name, location_T* loc, symbol_T* type, unsigned char is_mut, unsigned char is_param, unsigned char is_const, char* const_val) {
 	symbol_var_T* var = malloc(sizeof(symbol_var_T));
 
 	var->base = *symbol_new(name, SYM_VAR, loc);
 	var->type = type;
 	var->index = -1;
+	var->is_mut = is_mut;
+	var->is_assigned = 0;
 	var->is_param = is_param;
 	var->is_const = is_const;
 	var->const_val = const_val;

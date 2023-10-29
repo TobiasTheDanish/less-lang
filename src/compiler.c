@@ -549,6 +549,7 @@ void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
 		case AST_EXPR:
 		case AST_SYSCALL:
 		case AST_VAR_DECL:
+		case AST_CONST_DECL:
 		case AST_FUNC_DECL:
 		case AST_FUNC_CALL:
 		case AST_ASSIGN:
@@ -636,6 +637,8 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 		case AST_FUNC_CALL:
 			compile_func_call(c, expr->child);
 			break;
+		case AST_CONST_DECL:
+			break;
 
 		case AST_ELSE:
 		case AST_BLOCK:
@@ -711,7 +714,7 @@ void compile(compiler_T* c) {
 
 
 	append_file(c->file, "segment .bss\n");
-	append_file(c->file, "    mem: resb 64000\n");
+	append_file(c->file, "    mem: resq 8000\n");
 
 	append_file(c->file, "segment .data\n");
 	for (size_t i = 0; i < c->data_table->count; i++) {

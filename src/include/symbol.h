@@ -20,6 +20,8 @@ typedef struct SYMBOL_VAR_STRUCT {
 	symbol_T base;
 	symbol_T* type;
 	size_t index;
+	unsigned char is_mut;
+	unsigned char is_assigned;
 	unsigned char is_param;
 	unsigned char is_const;
 	char* const_val;
@@ -41,7 +43,7 @@ symbol_T* symbol_new(char* name, symbol_E type, location_T* loc);
 
 symbol_T* symbol_new_type(char* name, location_T* loc, size_t size);
 
-symbol_T* symbol_new_var(char* name, location_T* loc, symbol_T* type, unsigned char is_param, unsigned char is_const, char* const_val);
+symbol_T* symbol_new_var(char* name, location_T* loc, symbol_T* type, unsigned char is_mut,  unsigned char is_param, unsigned char is_const, char* const_val);
 
 symbol_T* symbol_new_func(char* name, location_T* loc);
 

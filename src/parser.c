@@ -272,6 +272,11 @@ ast_node_T* assign(parser_T* parser) {
 			location_T* loc = symbol->base.loc;
 			log_info("Constant identifier '%s' first defined here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
 			exit(1);
+		} else if (!symbol->is_mut && symbol->is_assigned) {
+			log_error(ident->loc, -1, "Cannot reassign immutable variable '%s'\n", ident->value);
+			location_T* loc = symbol->base.loc;
+			log_info("Consider adding 'mut' to declaration of '%s' here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
+			exit(1);
 		}
 		consume(parser);
 		consume(parser);
@@ -286,6 +291,7 @@ ast_node_T* assign(parser_T* parser) {
 			symbol->type = val->type_sym;
 		}
 
+		symbol->is_assigned = 1;
 		return ast_new_assign(ident, v);
 	} else {
 		log_error(ident->loc, 1, "Use of '%s', before declaration.\n", ident->value);
@@ -294,13 +300,18 @@ ast_node_T* assign(parser_T* parser) {
 
 }
 
-// var_decl : LET assign SEMI ;
+// var_decl : LET (MUT)? assign SEMI ;
 ast_node_T* var_decl(parser_T* parser) {
+	unsigned char is_mut = 0;
 	consume(parser);
+	if (parser->tokens[parser->t_index]->type == T_MUT) {
+		is_mut = 1;
+		consume(parser);
+	}
 	token_T* token = parser->tokens[parser->t_index];
 	if (!symbol_table_contains(parser->s_table, token->value)) {
 		char* name = token->value;
-		symbol_T* s = symbol_new_var(name, token->loc, NULL, 0, 0, 0);
+		symbol_T* s = symbol_new_var(name, token->loc, NULL, is_mut, 0, 0, 0);
 		symbol_table_put(parser->s_table, s);
 
 		ast_node_T* a = assign(parser);
@@ -323,7 +334,7 @@ ast_node_T* const_decl(parser_T* parser) {
 
 		ast_value_T* val = (ast_value_T*) value(parser);
 		
-		symbol_var_T* s = (symbol_var_T*) symbol_new_var(ident->value, ident->loc, val->type_sym, 0, 1, val->t->value);
+		symbol_var_T* s = (symbol_var_T*) symbol_new_var(ident->value, ident->loc, val->type_sym, 0, 0, 1, val->t->value);
 		symbol_table_put(parser->s_table, (symbol_T*)s);
 
 		data_table_put(parser->data_table, val->t, val->type_sym->name);
@@ -378,8 +389,13 @@ ast_node_T* syscall(parser_T* parser) {
 	return NULL; //unreachable
 }
 
-// func_param : ID COLON ID ;
+// func_param : (MUT)? ID COLON ID ;
 token_T* func_param(parser_T* parser, symbol_func_T* func) {
+	unsigned char is_mut = 0;
+	if (parser->tokens[parser->t_index]->type == T_MUT) {
+		is_mut = 1;
+		consume(parser);
+	}
 	token_T* param = parser->tokens[parser->t_index];
 	consume(parser);
 	consume(parser);
@@ -391,7 +407,7 @@ token_T* func_param(parser_T* parser, symbol_func_T* func) {
 		switch (type_sym->type) {
 			case SYM_VAR_TYPE:
 				{
-					symbol_T* var_sym = symbol_new_var(param->value, param->loc, type_sym, 1, 0, 0);
+					symbol_T* var_sym = symbol_new_var(param->value, param->loc, type_sym, is_mut, 1, 0, 0);
 					func_add_param(func, var_sym);
 					symbol_table_put(parser->s_table, var_sym);
 				}

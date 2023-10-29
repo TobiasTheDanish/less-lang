@@ -20,6 +20,7 @@ typedef enum TOKEN_E {
 	T_EQUALS,
 	T_LESS,
 	T_GREATER,
+	T_MUT,
 	T_LET,
 	T_CONST,
 	T_FUNC,

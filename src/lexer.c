@@ -61,6 +61,8 @@ token_T* read_ident(lexer_T* lexer, location_T* loc) {
 		return token_new(T_ELSE, value, loc);
 	} else if (strcmp("dump", value) == 0) {
 		return token_new(T_DUMP, value, loc);
+	} else if (strcmp("mut", value) == 0) {
+		return token_new(T_MUT, value, loc);
 	} else if (strcmp("let", value) == 0) {
 		return token_new(T_LET, value, loc);
 	} else if (strcmp("const", value) == 0) {
