@@ -11,10 +11,8 @@ func add(a: int, b: int) {
 }
 
 func main() {
-	let mut num1 = 35;
-	let mut num2 = 34;
+	let num1 = 35;
+	let num2 = 34;
 	add(num1, num2);
-	num1 = 80;
-	num2 = 340;
-	add(num1, num2);
+	print("Hello world\n");
 }

@@ -215,6 +215,9 @@ token_T* lexer_next_token(lexer_T* lexer) {
 			case ',':
 				return advance_with_token(lexer, T_COMMA, loc);
 
+			case '.':
+				return advance_with_token(lexer, T_DOT, loc);
+
 			case '+':
 				return advance_with_token(lexer, T_PLUS, loc);
 
@@ -242,6 +245,12 @@ token_T* lexer_next_token(lexer_T* lexer) {
 
 			case '%':
 				return advance_with_token(lexer, T_MODULUS, loc);
+
+			case '[':
+				return advance_with_token(lexer, T_LSQUARE, loc);
+
+			case ']':
+				return advance_with_token(lexer, T_RSQUARE, loc);
 
 			case '{':
 				return advance_with_token(lexer, T_LCURLY, loc);

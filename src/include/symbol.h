@@ -8,6 +8,7 @@ typedef enum SYMBOL_ENUM {
 	SYM_VAR,
 	SYM_FUNC,
 	SYM_VAR_TYPE,
+	SYM_PROP,
 } symbol_E;
 
 typedef struct SYMBOL_BASE_STRUCT {
@@ -27,10 +28,18 @@ typedef struct SYMBOL_VAR_STRUCT {
 	char* const_val;
 } symbol_var_T;
 
+typedef struct SYMBOL_PROP_STRUCT {
+	symbol_T base;
+	size_t offset;
+	symbol_T* type;
+} symbol_prop_T;
+
 typedef struct SYMBOL_VAR_TYPE_STRUCT {
 	symbol_T base;
 	char* operand;
 	size_t size;
+	symbol_T** props;
+	size_t prop_count;
 } symbol_type_T;
 
 typedef struct SYMBOL_FUNC_STRUCT {
@@ -41,11 +50,15 @@ typedef struct SYMBOL_FUNC_STRUCT {
 
 symbol_T* symbol_new(char* name, symbol_E type, location_T* loc);
 
-symbol_T* symbol_new_type(char* name, location_T* loc, size_t size);
+symbol_T* symbol_new_type(char* name, location_T* loc, size_t size, symbol_T** props, size_t count);
+
+symbol_T* symbol_new_prop(char* name, size_t offset, symbol_T* type);
 
 symbol_T* symbol_new_var(char* name, location_T* loc, symbol_T* type, unsigned char is_mut,  unsigned char is_param, unsigned char is_const, char* const_val);
 
 symbol_T* symbol_new_func(char* name, location_T* loc);
+
+bool symbol_is_prop(symbol_T* type, char* propname);
 
 void func_add_param(symbol_func_T* func, symbol_T* param);
 

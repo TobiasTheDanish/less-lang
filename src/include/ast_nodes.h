@@ -22,6 +22,8 @@ typedef enum AST_NODE_E {
 	AST_BIN_OP,
 	AST_OP,
 	AST_VALUE,
+	AST_ARRAY,
+	AST_PROP,
 	AST_DUMP,
 	AST_NO_OP,
 } ast_node_E;
@@ -144,6 +146,19 @@ typedef struct AST_NODE_VALUE {
 	symbol_T* type_sym;
 } ast_value_T;
 
+typedef struct AST_NODE_ARRAY {
+	ast_node_T base;
+	symbol_T* type;
+	symbol_T* elem_type;
+	token_T* len;
+} ast_array_T;
+
+typedef struct AST_NODE_PROP {
+	ast_node_T base;
+	symbol_T* parent_sym;
+	token_T* prop;
+} ast_prop_T;
+
 ast_node_T* ast_new(ast_node_E type, location_T* loc);
 ast_node_T* ast_new_program(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_block(ast_node_T** expressions, size_t count);
@@ -162,6 +177,8 @@ ast_node_T* ast_new_cond_op(token_T* t);
 ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, symbol_T* type);
 ast_node_T* ast_new_op(token_T* t);
 ast_node_T* ast_new_value(token_T* t, symbol_T* type);
+ast_node_T* ast_new_array(symbol_T* type, symbol_T* elem_type, token_T* len);
+ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop);
 ast_node_T* ast_new_dump(ast_node_T* value);
 
 char* ast_get_name(ast_node_E type);

@@ -211,6 +211,29 @@ ast_node_T* ast_new_value(token_T* t, symbol_T* type) {
 	return (ast_node_T*) value;
 }
 
+ast_node_T* ast_new_array(symbol_T* type, symbol_T* elem_type, token_T* len) {
+	ast_node_T* base = ast_new(AST_ARRAY, len->loc);
+
+	ast_array_T* arr = malloc(sizeof(ast_array_T));
+	arr->base = *base;
+	arr->type = type;
+	arr->elem_type = elem_type;
+	arr->len = len;
+
+	return (ast_node_T*) arr;
+}
+
+ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop) {
+	ast_node_T* base = ast_new(AST_PROP, prop->loc);
+
+	ast_prop_T* p = malloc(sizeof(ast_prop_T));
+	p->base = *base;
+	p->parent_sym = parent_sym;
+	p->prop = p->prop;
+
+	return (ast_node_T*) p;
+}
+
 char* ast_get_name(ast_node_E type) {
 	char* names[] = { 
 		"Program",
@@ -230,6 +253,8 @@ char* ast_get_name(ast_node_E type) {
 		"Binary operation", 
 		"Operation", 
 		"Value", 
+		"Array", 
+		"Property", 
 		"Dump", 
 		"No operation" 
 	};

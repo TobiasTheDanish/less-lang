@@ -33,11 +33,29 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 }
 
 void consume(parser_T* parser) {
-	//token_T* t = parser->tokens[parser->t_index];
-	//log_info("Token: (%s, %s)\n", token_get_name(t->type), t->value);
+	token_T* t = parser->tokens[parser->t_index];
+	log_info("Token: (%s, %s)\n", token_get_name(t->type), t->value);
 
 	parser->tokens[parser->t_index] = lexer_next_token(parser->lexer);
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
+}
+
+// prop : ID DOT ID ; 
+ast_node_T* prop(parser_T* parser) {
+	token_T* parent = parser->tokens[parser->t_index];
+	symbol_T* parent_sym = symbol_table_get(parser->s_table, parent->value);
+	symbol_var_T* v = (symbol_var_T*) parent_sym;
+
+	consume(parser);
+	consume(parser);
+
+	token_T* prop = parser->tokens[parser->t_index];
+	if (!symbol_is_prop(v->type, prop->value)) {
+		log_error(prop->loc, 1, "Unknown property '%s' for identifier '%s' of type '%s'\n", prop->value, parent->value, v->type->name);
+	}
+
+	consume(parser);
+	return ast_new_prop(parent_sym, prop);
 }
 
 // value: (POINTER | ID | INT | STRING);
@@ -175,18 +193,24 @@ ast_node_T* cond_op(parser_T* parser) {
 }
 
 
-// conditional : (value | bin_op) cond_op (value | bin_op) ;
+// conditional : (value | bin_op | prop) cond_op (value | bin_op | prop) ;
 ast_node_T* conditional(parser_T* parser) {
 	ast_node_T* lhs;
-	if (token_is_op(parser->tokens[(parser->t_index + 1) % parser->t_count])) {
+	token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
+	if (token_is_op(next)) {
 		lhs = bin_op(parser);
+	} else if (next->type == T_DOT) {
+		lhs = prop(parser);
 	} else {
 		lhs = value(parser);
 	}
 	ast_node_T* operation = cond_op(parser);
 	ast_node_T* rhs;
-	if (token_is_op(parser->tokens[(parser->t_index + 1) % parser->t_count])) {
+	next = parser->tokens[(parser->t_index + 1) % parser->t_count];
+	if (token_is_op(next)) {
 		rhs = bin_op(parser);
+	} else if (next->type == T_DOT) {
+		rhs = prop(parser);
 	} else {
 		rhs = value(parser);
 	}
@@ -262,7 +286,25 @@ ast_node_T* if_block(parser_T* parser) {
 	return ast_new_if(index, cond, b, elze);
 }
 
-// assign : ID ASSIGN (value | bin_op) ;
+// array : ID LSQUARE INTEGER RSQUARE ;
+ast_node_T* array(parser_T* parser) {
+	token_T* ident = parser->tokens[parser->t_index];
+	symbol_T* elem_type = symbol_table_get(parser->s_table, ident->value);
+	symbol_T* type = symbol_table_get(parser->s_table, "array");
+
+	if (elem_type == NULL || elem_type->type != SYM_VAR_TYPE) {
+		log_error(ident->loc, 1, "Unexpected type of array, found: '%s'.\n", ident->value);
+	}
+
+	consume(parser);
+	consume(parser);
+	token_T* size = parser->tokens[parser->t_index];
+	consume(parser);
+	consume(parser);
+	return ast_new_array(type, elem_type, size);
+}
+
+// assign : ID ASSIGN (value | bin_op | array) ;
 ast_node_T* assign(parser_T* parser) {
 	token_T* ident = parser->tokens[parser->t_index];
 	if (symbol_table_contains(parser->s_table, ident->value)) {
@@ -285,6 +327,10 @@ ast_node_T* assign(parser_T* parser) {
 			v = bin_op(parser);
 			ast_bin_op_T* val = (ast_bin_op_T*) v;
 			symbol->type = val->type_sym;
+		} else if (parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
+			v = array(parser);
+			ast_array_T* arr = (ast_array_T*) v;
+			symbol->type = arr->type;
 		} else {
 			v = value(parser);
 			ast_value_T* val = (ast_value_T*) v;
