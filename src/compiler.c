@@ -112,9 +112,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 						append_file(c->file, var_type->operand);
 
 						char str[20];
-							if (!var_sym->is_param && !var_sym->is_const) {
-								snprintf(str, 20, " [mem+%zu]\n", (var_type->size * (var_sym->index+1)));
-							} else if (var_sym->is_param) {
+							if (!var_sym->is_const) {
 								snprintf(str, 20, " [rbp-%zu]\n", (var_type->size * (var_sym->index+1)));
 							} else if (var_sym->is_const) {
 								size_t index = data_table_get_index(c->data_table, var_sym->const_val);
@@ -147,9 +145,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 							append_file(c->file, var_type->operand);
 
 							char str[20];
-							if (!var_sym->is_param && !var_sym->is_const) {
-								snprintf(str, 20, " mem+%zu\n", (var_type->size * (var_sym->index+1)));
-							} else if (var_sym->is_param) {
+							if (!var_sym->is_const) {
 								snprintf(str, 20, " rbp-%zu\n", (var_type->size * (var_sym->index+1)));
 							} else if (var_sym->is_const) {
 								size_t index = data_table_get_index(c->data_table, var_sym->const_val);
@@ -387,7 +383,7 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 			char str[20];
 			append_file(c->file, "    pop ");
 			append_file(c->file, var_type->operand);
-			append_file(c->file, " [mem+");
+			append_file(c->file, " [rbp-");
 
 			snprintf(str, 20, "%zu]\n", (var_type->size * (var_sym->index+1)));
 			append_file(c->file, str);
