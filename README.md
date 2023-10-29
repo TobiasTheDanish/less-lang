@@ -65,7 +65,10 @@ C-style syntax
 - [x] Support for Linux syscalls
 - [x] String literals
 - [x] Functions
+- [ ] Identifier properties
 - [ ] Arrays
+- [ ] Import of other source files
+- [ ] Structs
 
 
 
