@@ -41,6 +41,18 @@ ast_node_T* ast_new_expr(ast_node_T* child) {
 	return (ast_node_T*) expr;
 }
 
+ast_node_T* ast_new_array_expr(ast_node_T* array_element, ast_node_T* op, ast_node_T* rhs) {
+	ast_node_T* base = ast_new(AST_ARRAY_EXPR, array_element->loc);
+
+	ast_array_expr_T* expr = malloc(sizeof(ast_array_expr_T));
+	expr->base = *base;
+	expr->array_element = array_element;
+	expr->op = op;
+	expr->rhs = rhs;
+
+	return (ast_node_T*) expr;
+}
+
 ast_node_T* ast_new_syscall(ast_node_T** params, size_t count) {
 	ast_node_T* base = ast_new(AST_SYSCALL, NULL);
 
@@ -223,6 +235,17 @@ ast_node_T* ast_new_array(symbol_T* type, symbol_T* elem_type, token_T* len) {
 	return (ast_node_T*) arr;
 }
 
+ast_node_T* ast_new_array_element(token_T* ident, ast_node_T* offset) {
+	ast_node_T* base = ast_new(AST_ARRAY_ELEMENT, ident->loc);
+
+	ast_array_element_T* e = malloc(sizeof(ast_array_element_T));
+	e->base = *base;
+	e->ident = ident;
+	e->offset = offset;
+
+	return (ast_node_T*) e;
+}
+
 ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop) {
 	ast_node_T* base = ast_new(AST_PROP, prop->loc);
 
@@ -239,6 +262,7 @@ char* ast_get_name(ast_node_E type) {
 		"Program",
 		"Block", 
 		"Expression", 
+		"Array expression", 
 		"Syscall", 
 		"Variable declaration", 
 		"Constant declaration", 
@@ -254,6 +278,7 @@ char* ast_get_name(ast_node_E type) {
 		"Operation", 
 		"Value", 
 		"Array", 
+		"Array element", 
 		"Property", 
 		"Dump", 
 		"No operation" 

@@ -8,6 +8,7 @@ typedef enum AST_NODE_E {
 	AST_PROGRAM,
 	AST_BLOCK,
 	AST_EXPR,
+	AST_ARRAY_EXPR,
 	AST_SYSCALL,
 	AST_VAR_DECL,
 	AST_CONST_DECL,
@@ -23,6 +24,7 @@ typedef enum AST_NODE_E {
 	AST_OP,
 	AST_VALUE,
 	AST_ARRAY,
+	AST_ARRAY_ELEMENT,
 	AST_PROP,
 	AST_DUMP,
 	AST_NO_OP,
@@ -49,6 +51,13 @@ typedef struct AST_NODE_EXPR {
 	ast_node_T base;
 	ast_node_T* child;
 } ast_expr_T;
+
+typedef struct AST_NODE_ARRAY_EXPR {
+	ast_node_T base;
+	ast_node_T* array_element;
+	ast_node_T* op;
+	ast_node_T* rhs;
+} ast_array_expr_T;
 
 typedef struct AST_NODE_SYSCALL {
 	ast_node_T base;
@@ -153,6 +162,12 @@ typedef struct AST_NODE_ARRAY {
 	token_T* len;
 } ast_array_T;
 
+typedef struct AST_NODE_ARRAY_ELEMENT {
+	ast_node_T base;
+	token_T* ident;
+	ast_node_T* offset;
+} ast_array_element_T;
+
 typedef struct AST_NODE_PROP {
 	ast_node_T base;
 	symbol_T* parent_sym;
@@ -163,6 +178,7 @@ ast_node_T* ast_new(ast_node_E type, location_T* loc);
 ast_node_T* ast_new_program(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_block(ast_node_T** expressions, size_t count);
 ast_node_T* ast_new_expr(ast_node_T* child);
+ast_node_T* ast_new_array_expr(ast_node_T* array_element, ast_node_T* op, ast_node_T* rhs);
 ast_node_T* ast_new_syscall(ast_node_T** params, size_t count);
 ast_node_T* ast_new_func_decl(token_T* ident, token_T** params, size_t param_count, ast_node_T* block);
 ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_count);
@@ -178,6 +194,7 @@ ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, sym
 ast_node_T* ast_new_op(token_T* t);
 ast_node_T* ast_new_value(token_T* t, symbol_T* type);
 ast_node_T* ast_new_array(symbol_T* type, symbol_T* elem_type, token_T* len);
+ast_node_T* ast_new_array_element(token_T* ident, ast_node_T* offset);
 ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop);
 ast_node_T* ast_new_dump(ast_node_T* value);
 

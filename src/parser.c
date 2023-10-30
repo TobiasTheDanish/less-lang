@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #define SYMBOL_SIZE 8
 
@@ -33,8 +34,8 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 }
 
 void consume(parser_T* parser) {
-	token_T* t = parser->tokens[parser->t_index];
-	log_info("Token: (%s, %s)\n", token_get_name(t->type), t->value);
+	//token_T* t = parser->tokens[parser->t_index];
+	//log_info("Token: (%s, %s)\n", token_get_name(t->type), t->value);
 
 	parser->tokens[parser->t_index] = lexer_next_token(parser->lexer);
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
@@ -159,12 +160,38 @@ ast_node_T* bin_op(parser_T* parser) {
 	return ast_new_bin_op((ast_node_T*)lhs, operation, rhs, (symbol_T*)type);
 }
 
+// array_element : ID LSQUARE (array_element | IDENT | INTEGER | bin_op) RSQUARE ;
+ast_node_T* array_element(parser_T* parser) {
+	token_T* ident = parser->tokens[parser->t_index];
+
+	consume(parser);
+	consume(parser);
+
+	token_T* index = parser->tokens[parser->t_index];
+	ast_node_T* offset;
+
+	token_T* next = parser->tokens[(parser->t_index+1) % parser->t_count];
+	if (next->type == T_LSQUARE) {
+		offset = array_element(parser);
+	} else if (token_is_op(next)) {
+		offset = bin_op(parser);
+	} else {
+		offset = value(parser);
+	}
+	consume(parser);
+
+	return ast_new_array_element(ident, offset);
+}
+
 // dump: DUMP (bin_op | value);
 ast_node_T* dump(parser_T* parser) {
 	consume(parser);
 	ast_node_T* val;
-	if (token_is_op(parser->tokens[(parser->t_index+1) % parser->t_count])) {
+	token_T* next = parser->tokens[(parser->t_index+1) % parser->t_count];
+	if (token_is_op(next)) {
 		val = bin_op(parser);
+	} else if (next->type == T_LSQUARE) {
+		val = array_element(parser);
 	} else {
 		val = value(parser);
 	}
@@ -570,7 +597,33 @@ ast_node_T* func_call(parser_T* parser) {
 	return ast_new_func_call(ident, params, count);
 }
 
-// expr : syscall SEMI | if | while | var_decl | const_decl | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
+// array_expr : array_element (ASSIGN | op) (value | bin_op | array) ;
+ast_node_T* array_expr(parser_T* parser) {
+	ast_node_T* elem = array_element(parser);
+
+	token_T* t = parser->tokens[parser->t_index];
+	ast_node_T* operation;
+	if (token_is_op(t)) {
+		operation = op(parser);
+	} else {
+		operation = NULL;
+		consume(parser);
+	}
+
+	token_T* next = parser->tokens[(parser->t_index+1)%parser->t_count];
+	ast_node_T* rhs;
+	if (token_is_op(next)) {
+		rhs = bin_op(parser);
+	} else if (next->type == T_LSQUARE) {
+		rhs = array(parser);
+	} else {
+		rhs = value(parser);
+	}
+
+	return ast_new_array_expr(elem, operation, rhs);
+}
+
+// expr : syscall SEMI | if | while | var_decl | const_decl | array_expr SEMI | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
 ast_node_T* expr(parser_T* parser) {
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T* child;
@@ -602,7 +655,11 @@ ast_node_T* expr(parser_T* parser) {
 		case T_IDENT:
 			{
 				token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
-				if (next->type == T_ASSIGN) {
+				if (next->type == T_LSQUARE) {
+					child = array_expr(parser);
+					consume(parser);
+					break;
+				} else if (next->type == T_ASSIGN) {
 					child = assign(parser);
 					consume(parser);
 				} else if (next->type == T_LPAREN) {
