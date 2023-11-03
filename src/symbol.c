@@ -92,6 +92,19 @@ bool symbol_is_prop(symbol_T* type, char* propname) {
 	return false;
 }
 
+size_t symbol_get_prop_offset(symbol_T* type, char* propname) {
+	symbol_type_T* t = (symbol_type_T*)type;
+
+	for (size_t i = 0; i < t->prop_count; i++) {
+		if (strcmp(t->props[i]->name, propname) == 0) {
+			symbol_prop_T* p = (symbol_prop_T*)t->props[i];
+			return p->offset;
+		}
+	}
+
+	return -1;
+}
+
 void func_add_param(symbol_func_T* func, symbol_T* param) {
 	func->params[func->param_count++] = param;
 	func->params = realloc(func->params, (func->param_count+1) * sizeof(symbol_T*));

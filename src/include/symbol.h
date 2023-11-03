@@ -60,6 +60,8 @@ symbol_T* symbol_new_func(char* name, location_T* loc);
 
 bool symbol_is_prop(symbol_T* type, char* propname);
 
+size_t symbol_get_prop_offset(symbol_T* type, char* propname);
+
 void func_add_param(symbol_func_T* func, symbol_T* param);
 
 char* symbol_to_string(symbol_T* symbol);

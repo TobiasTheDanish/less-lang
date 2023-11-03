@@ -13,6 +13,7 @@
 
 #define SYMBOL_SIZE 8
 
+ast_node_T* array_expr(parser_T* parser);
 ast_node_T* expr(parser_T* parser);
 ast_node_T* if_block(parser_T* parser);
 
@@ -34,8 +35,8 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 }
 
 void consume(parser_T* parser) {
-	//token_T* t = parser->tokens[parser->t_index];
-	//log_info("Token: (%s, %s)\n", token_get_name(t->type), t->value);
+	token_T* t = parser->tokens[parser->t_index];
+	log_info("Token: (%s, %s)\n", token_get_name(t->type), t->value);
 
 	parser->tokens[parser->t_index] = lexer_next_token(parser->lexer);
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
@@ -349,21 +350,30 @@ ast_node_T* assign(parser_T* parser) {
 		}
 		consume(parser);
 		consume(parser);
+		symbol_T* s = symbol_table_get(parser->s_table, parser->tokens[parser->t_index]->value);
 		ast_node_T* v;
 		if (token_is_op(parser->tokens[(parser->t_index + 1) %parser->t_count])) {
 			v = bin_op(parser);
 			ast_bin_op_T* val = (ast_bin_op_T*) v;
 			symbol->type = val->type_sym;
-		} else if (parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
+		} else if (s == NULL){
+			v = value(parser);
+			ast_value_T* val = (ast_value_T*) v;
+			symbol->type = val->type_sym;
+		} else if (s->type == SYM_VAR_TYPE && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
 			v = array(parser);
 			ast_array_T* arr = (ast_array_T*) v;
 			symbol->type = arr->type;
+		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
+			v = array_expr(parser);
+			ast_array_element_T* elem = (ast_array_element_T*) v;
+			symbol_var_T* var = (symbol_var_T*)s;
+			symbol->type = var->type;
 		} else {
 			v = value(parser);
 			ast_value_T* val = (ast_value_T*) v;
 			symbol->type = val->type_sym;
 		}
-
 		symbol->is_assigned = 1;
 		return ast_new_assign(ident, v);
 	} else {
@@ -597,7 +607,7 @@ ast_node_T* func_call(parser_T* parser) {
 	return ast_new_func_call(ident, params, count);
 }
 
-// array_expr : array_element (ASSIGN | op) (value | bin_op | array) ;
+// array_expr : array_element (ASSIGN | op) (array_expr | value | bin_op | array) ;
 ast_node_T* array_expr(parser_T* parser) {
 	ast_node_T* elem = array_element(parser);
 
@@ -614,8 +624,14 @@ ast_node_T* array_expr(parser_T* parser) {
 	ast_node_T* rhs;
 	if (token_is_op(next)) {
 		rhs = bin_op(parser);
+		consume(parser);
 	} else if (next->type == T_LSQUARE) {
-		rhs = array(parser);
+		symbol_T* s = symbol_table_get(parser->s_table, parser->tokens[parser->t_index]->value);
+		if (s->type == SYM_VAR_TYPE) {
+			rhs = array(parser);
+		} else {
+			rhs = array_expr(parser);
+		}
 	} else {
 		rhs = value(parser);
 	}

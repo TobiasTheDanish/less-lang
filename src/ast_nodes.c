@@ -252,7 +252,7 @@ ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop) {
 	ast_prop_T* p = malloc(sizeof(ast_prop_T));
 	p->base = *base;
 	p->parent_sym = parent_sym;
-	p->prop = p->prop;
+	p->prop = prop;
 
 	return (ast_node_T*) p;
 }
