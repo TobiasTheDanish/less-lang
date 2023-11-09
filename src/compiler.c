@@ -417,6 +417,8 @@ void compile_conditional(compiler_T* c, ast_node_T* node) {
 		compile_prop(c, cond->rhs);
 	} else if(cond->rhs->type == AST_ARRAY_ELEMENT) {
 		compile_array_element(c, cond->rhs);
+		append_file(c->file,  "    pop rax\n");
+		append_file(c->file,  "    push QWORD [rax]\n");
 	} else {
 		compile_value(c, cond->rhs);
 	}
