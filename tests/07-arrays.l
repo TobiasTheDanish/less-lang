@@ -1,9 +1,8 @@
 func main() {
-	let arr = int[10];
-	arr[0] = 10000;
-	let mut i = 1;
+	let arr = int[100];
+	let mut i = 0;
 	while i < arr.len {
-		arr[i] = arr[i-1] * i;
+		arr[i] = i + 1;
 		dump arr[i];
 		i = i + 1;
 	}

@@ -17,7 +17,10 @@ typedef enum TOKEN_E {
 	T_MULTIPLY,
 	T_DIVIDE,
 	T_MODULUS,
+	T_AND,
+	T_OR,
 	T_EQUALS,
+	T_NOT_EQUALS,
 	T_LESS,
 	T_GREATER,
 	T_MUT,
@@ -56,5 +59,6 @@ token_T* token_new(token_E type, char* value, location_T* loc);
 char* token_get_name(token_E type);
 
 bool token_is_op(token_T* token);
+bool token_is_logical(token_T* token);
 #endif // !TOKEN_H
 

@@ -20,6 +20,7 @@ typedef struct SYMBOL_BASE_STRUCT {
 typedef struct SYMBOL_VAR_STRUCT {
 	symbol_T base;
 	symbol_T* type;
+	symbol_T* elem_type;
 	size_t index;
 	unsigned char is_mut;
 	unsigned char is_assigned;

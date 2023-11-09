@@ -59,6 +59,7 @@ symbol_T* symbol_new_var(char* name, location_T* loc, symbol_T* type, unsigned c
 
 	var->base = *symbol_new(name, SYM_VAR, loc);
 	var->type = type;
+	var->elem_type = NULL;
 	var->index = -1;
 	var->is_mut = is_mut;
 	var->is_assigned = 0;

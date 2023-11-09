@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
 
 	lexer_T* lexer = lexer_from_file(args->filepath);
 
-	parser_T* parser = parser_new(lexer, 2);
+	parser_T* parser = parser_new(lexer, 4);
 
 	ast_node_T* program = parser_parse(parser);
 
