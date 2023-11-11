@@ -515,7 +515,7 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 	append_file(c->file, str);
 }
 
-// assign : ID ASSIGN (value | bin_op | array | array_element) ;
+// assign : (array_element | ID) ASSIGN (value | bin_op | array | array_element) ;
 void compile_assign(compiler_T* c, ast_node_T* node) {
 	ast_assign_T* a = (ast_assign_T*) node;
 	symbol_T* sym = symbol_table_get(c->s_table, a->ident->value);
@@ -538,15 +538,23 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 				log_error(a->value->loc, 1, "Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
 			}
 
-			symbol_var_T* var_sym = (symbol_var_T*) sym;
-			symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
-			char str[20];
-			append_file(c->file, "    pop ");
-			append_file(c->file, var_type->operand);
-			append_file(c->file, " [rbp+");
 
-			snprintf(str, 20, "%zu]\n", (var_type->size * (var_sym->index+1))+2);
-			append_file(c->file, str);
+			if (a->lhs->type == AST_ARRAY_ELEMENT) {
+				compile_array_element(c, a->lhs);
+				append_file(c->file, "    pop rax\n");
+				append_file(c->file, "    pop rsi\n");
+				append_file(c->file, "    mov QWORD [rax], rsi\n");
+			} else if (a->lhs->type == AST_VALUE) {
+				symbol_var_T* var_sym = (symbol_var_T*) sym;
+				symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
+				char str[20];
+				append_file(c->file, "    pop ");
+				append_file(c->file, var_type->operand);
+				append_file(c->file, " [rbp+");
+
+				snprintf(str, 20, "%zu]\n", (var_type->size * (var_sym->index+1))+2);
+				append_file(c->file, str);
+			}
 			break;
 
 		default:

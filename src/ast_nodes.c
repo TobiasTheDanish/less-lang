@@ -113,12 +113,13 @@ ast_node_T* ast_new_const_decl(token_T* ident, ast_node_T* value, char* type) {
 	return (ast_node_T*) decl;
 }
 
-ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value) {
+ast_node_T* ast_new_assign(token_T* ident, ast_node_T* lhs, ast_node_T* value) {
 	ast_node_T* base = ast_new(AST_ASSIGN, ident->loc);
 
 	ast_assign_T* assign = malloc(sizeof(ast_assign_T));
 	assign->base = *base;
 	assign->ident = ident;
+	assign->lhs = lhs;
 	assign->value = value;
 
 	return (ast_node_T*) assign;
