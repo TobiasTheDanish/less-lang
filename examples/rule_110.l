@@ -8,10 +8,10 @@ func printString(str: string) {
 
 func main() {
 	const ROWS = 100;
-	let next = int[100];
+	let next = int[ROWS];
 	next[0] = 32;
-	next[99] = 32;
-	let display = int[100];
+	next[next.len-1] = 32;
+	let display = int[ROWS];
 
 	let mut i = 0;
 	while i < display.len {
@@ -20,7 +20,7 @@ func main() {
 	}
 	
 	display[97] = 42;
-	display[99] = 10;
+	display[display.len-1] = 10;
 
 	i = 0;
 	while i < ROWS {
