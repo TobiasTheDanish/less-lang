@@ -875,6 +875,7 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 		case AST_PROGRAM:
 		case AST_CONDITIONAL:
 		case AST_COND_OP:
+		case AST_LOGICAL_OP:
 			log_error(expr->child->loc, 1, "Unexpected node in expr, found: %s.\n", ast_get_name(expr->child->type));
 			break;
 	}

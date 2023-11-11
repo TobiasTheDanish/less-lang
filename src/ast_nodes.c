@@ -286,6 +286,7 @@ char* ast_get_name(ast_node_E type) {
 		"Else",
 		"Conditional",
 		"Conditional operater",
+		"Logical operater",
 		"Binary operation", 
 		"Operation", 
 		"Value", 
