@@ -9,7 +9,6 @@
 lexer_T* lexer_from_file(char* filePath){
 	file_T* file = open_file(filePath);
 	char* content = read_file(file);
-	log_info("src: \n%s\n", content);
 
 	lexer_T* lexer = malloc(sizeof(lexer_T));
 	lexer->content = content;

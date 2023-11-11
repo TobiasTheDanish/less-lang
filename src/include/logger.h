@@ -4,6 +4,7 @@
 #include "stdarg.h"
 #include "token.h"
 
+void log_debug(unsigned char log, const char* format, ...);
 void log_info(const char* format, ...);
 void log_warning(const char* format, ...);
 void log_todo(const char* format, ...);

@@ -1,6 +1,7 @@
 #include "include/compiler.h"
 #include "include/logger.h"
 #include "include/parser.h"
+#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,6 +24,7 @@ void print_usage() {
 typedef struct{
 	char* filepath;
 	char* out_path;
+	unsigned char debug;
 } args_t ;
 
 args_t* parse_args(int argc, char** argv) {
@@ -32,6 +34,9 @@ args_t* parse_args(int argc, char** argv) {
 	}
 
 	args_t* args = malloc(sizeof(args_t));
+	args->filepath = (void*)0;
+	args->out_path = (void*)0;
+	args->debug = 0;
 
 	int i = 1;
 	while (i < argc) {
@@ -44,7 +49,13 @@ args_t* parse_args(int argc, char** argv) {
 			args->filepath = argv[i];
 		} else if (strcmp(argv[i], "-o") == 0) {
 			args->out_path = argv[++i];
-		} 
+		} else if (strcmp(argv[i], "-dbg") == 0) {
+			args->debug = 1;
+		} else {
+			printf("%s is not a valid flag.\n", argv[i]);
+			print_usage();
+			exit(1);
+		}
 
 		i++;
 	}
@@ -63,21 +74,25 @@ int main(int argc, char** argv) {
 
 	lexer_T* lexer = lexer_from_file(args->filepath);
 
-	parser_T* parser = parser_new(lexer, 4);
+	parser_T* parser = parser_new(lexer, 4, args->debug);
 
 	ast_node_T* program = parser_parse(parser);
 
 	char asmpath[strlen(args->out_path)+5];
 	snprintf(asmpath, strlen(args->out_path)+5, "%s.asm", args->out_path);
-	compiler_T* compiler = compiler_new(program, parser->s_table, parser->data_table, asmpath);
+	compiler_T* compiler = compiler_new(program, parser->s_table, parser->data_table, asmpath, args->debug);
 	compile(compiler);
 
+	log_info("Asembling\n");
 	char cmd[220];
 	snprintf(cmd, 220, "nasm -felf64 -g %s.asm", args->out_path);
 	call_cmd(cmd);
+	log_info("Asembling finished\n");
 
+	log_info("Linking\n");
 	snprintf(cmd, 220, "ld -g -o %s %s.o", args->out_path, args->out_path);
 	call_cmd(cmd);
+	log_info("Linking finished\n");
 
 	return 0;
 }

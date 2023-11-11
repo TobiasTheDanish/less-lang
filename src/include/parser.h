@@ -15,9 +15,10 @@ typedef struct PARSER_STRUCT {
 	size_t if_count;
 	symbol_table_T* s_table;
 	data_table_T* data_table;
+	unsigned char debug;
 } parser_T;
 
-parser_T* parser_new(lexer_T* lexer, size_t t_count);
+parser_T* parser_new(lexer_T* lexer, size_t t_count, unsigned char debug);
 
 ast_node_T* parser_parse(parser_T* parser);
 
