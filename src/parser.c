@@ -421,7 +421,85 @@ ast_node_T* array(parser_T* parser) {
 	return ast_new_array(type, elem_type, size);
 }
 
-// assign : (ID | array_element) ASSIGN (value | bin_op | array | array_element | prop) ;
+// attribute : ID ASSIGN (value | array_element | prop | bin_op | array) COMMA?
+ast_node_T* attribute(parser_T* parser, symbol_type_T* type) {
+	token_T* ident = parser->tokens[parser->t_index];
+	if(!symbol_is_prop((symbol_T *)type, ident->value)) {
+		log_error(ident->loc, 1, "Symbol '%s' is not a propery of type '%s'.\n", ident->value, type->base.name);
+	}
+	symbol_T* prop_type = symbol_get_prop_type((symbol_T*)type, ident->value);
+	consume(parser);
+	consume(parser);
+
+	symbol_T* val_sym = symbol_table_get(parser->s_table, parser->tokens[parser->t_index]->value);
+	ast_node_T* val;
+	symbol_T* val_type;
+	token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
+	if (next->type == T_DOT) {
+		val = prop(parser);
+		ast_prop_T* p = (ast_prop_T*) val;
+		symbol_var_T* var = (symbol_var_T*)val_sym;
+		val_type = (symbol_T*) symbol_get_prop_type(var->type, p->prop->value);
+	} else if (val_sym != NULL && val_sym->type == SYM_VAR_TYPE && next->type == T_LSQUARE) {
+		val = array(parser);
+		ast_array_T* arr = (ast_array_T*) val;
+		val_type = arr->type;
+	} else if (val_sym != NULL && val_sym->type == SYM_VAR && next->type == T_LSQUARE) {
+		val = array_element(parser);
+		symbol_var_T* var = (symbol_var_T*)val_sym;
+		val_type = var->elem_type;
+	} else {
+		val = value(parser);
+		ast_value_T* v = (ast_value_T*) val;
+		val_type = v->type_sym;
+	}
+
+	if (token_is_op(parser->tokens[parser->t_index])) {
+		val = bin_op(parser, val);
+		ast_bin_op_T* v = (ast_bin_op_T*) val;
+		val_type = v->type_sym;
+	}
+
+	if (val_type == NULL || strcmp(val_type->name, prop_type->name) != 0) {
+		log_error(ident->loc, 1, "Mismatched types in struct initialization. Found %s and expected %s.\n", val_type->name, prop_type->name);
+	}
+
+	return ast_new_attribute(ident, val);
+}
+
+// struct_init : ID LCURLY (attribute)* RCURLY ;
+ast_node_T* struct_init(parser_T* parser) {
+	token_T* ident = parser->tokens[parser->t_index];
+	if (!symbol_table_contains(parser->s_table, ident->value)) {
+		log_error(ident->loc, 1, "Unknown symbol '%s'.\n", ident->value);
+	}
+
+	symbol_T* id = symbol_table_get(parser->s_table, ident->value);
+	if (id->type != SYM_VAR_TYPE) {
+		log_error(ident->loc, 1, "Attempt at initializing a variable of type '%s'. '%s' is not a type.", ident->value, ident->value);
+	}
+	consume(parser);
+	consume(parser);
+	symbol_type_T* type = (symbol_type_T*) id;
+
+	ast_node_T** attributes = malloc(sizeof(ast_node_T*));
+	size_t attr_count = 0;
+	token_T* token = parser->tokens[parser->t_index];
+	while (token->type != T_RCURLY) {
+		attributes[attr_count++] = attribute(parser, type);
+		attributes = realloc(attributes, (attr_count+1) * sizeof(ast_node_T*));
+
+		if (parser->tokens[parser->t_index]->type == T_COMMA) consume(parser);
+
+		token = parser->tokens[parser->t_index];
+	}
+	consume(parser);
+
+	return ast_new_struct_init(attributes, attr_count, ident->value);
+}
+
+
+// assign : (ID | array_element) ASSIGN (value | bin_op | array | array_element | prop | struct_init) ;
 ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 	token_T* ident;
 	switch (lhs->type) {
@@ -466,6 +544,12 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 				ast_value_T* val = (ast_value_T*) v;
 				symbol->type = val->type_sym;
 			}
+		} else if (s->type == SYM_VAR_TYPE && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LCURLY) {
+			v = struct_init(parser);
+			if (!symbol->is_assigned) {
+				ast_struct_init_T* structure = (ast_struct_init_T*) v;
+				symbol->type = symbol_table_get(parser->s_table, structure->struct_name);
+			}
 		} else if (s->type == SYM_VAR_TYPE && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
 			v = array(parser);
 			if (!symbol->is_assigned) {
@@ -476,8 +560,9 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_DOT) {
 			v = prop(parser);
 			if (!symbol->is_assigned) {
+				ast_prop_T* p = (ast_prop_T*) v;
 				symbol_var_T* var = (symbol_var_T*)s;
-				symbol->type = var->elem_type;
+				symbol->type = symbol_get_prop_type(var->type, p->prop->value);
 			}
 		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
 			v = array_element(parser);
@@ -789,67 +874,125 @@ ast_node_T* array_expr(parser_T* parser) {
 	return ast_new_array_expr(elem, operation, rhs);
 }
 
+// attribute : ID COLON ID SEMI ;
+symbol_T* decl_attribute(parser_T* parser, size_t offset) {
+
+	token_T* ident = parser->tokens[parser->t_index];
+	consume(parser);
+	consume(parser);
+	token_T* type = parser->tokens[parser->t_index];
+	symbol_T* type_sym = symbol_table_get(parser->s_table, type->value);
+
+	if (type_sym == NULL) {
+		log_error(type->loc, 1, "Type '%s' is not a known type.");
+	}
+	consume(parser);
+	consume(parser);
+
+	return symbol_new_prop(ident->value, offset, type_sym);
+}
+ 
+// struct_decl : STRUCT ID LCURLY (attribute)* RCURLY ;
+void struct_decl(parser_T* parser) {
+	log_debug(parser->debug, "parser struct_decl\n");
+	consume(parser);
+	token_T* ident = parser->tokens[parser->t_index];
+	if (symbol_table_contains(parser->s_table, ident->value)) {
+		log_error(ident->loc, 1, "'%s' is already defined\n", ident->value);
+	}
+	consume(parser);
+	consume(parser);
+
+	size_t struct_size = 0;
+	symbol_T** props = malloc(sizeof(symbol_T*));
+	size_t prop_count = 0;
+	token_T* token = parser->tokens[parser->t_index];
+
+	while (token->type != T_RCURLY) {
+		symbol_T* attr = decl_attribute(parser, struct_size);
+		symbol_prop_T* prop_sym = (symbol_prop_T*) attr;
+		symbol_type_T* prop_type = (symbol_type_T*) prop_sym->type;
+
+		props[prop_count++] = attr;
+		props = realloc(props, (prop_count+1) * sizeof(symbol_T*));
+
+		struct_size += prop_type->size;
+
+		token = parser->tokens[parser->t_index];
+	}
+
+	consume(parser);
+
+	symbol_T* type = symbol_new_type(ident->value, ident->loc, struct_size, props, prop_count);
+	symbol_table_put(parser->s_table, type);
+}
+
 // expr : syscall SEMI | if | while | var_decl | const_decl | array_expr SEMI | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
 ast_node_T* expr(parser_T* parser) {
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T* child;
 
-	switch (token->type) {
-		case T_SYSCALL:
-			child = syscall(parser);
-			consume(parser);
-			break;
-		case T_IF:
-			child = if_block(parser);
-			break;
-		case T_WHILE:
-			child = while_block(parser);
-			break;
-		case T_DUMP:
-			child = dump(parser);
-			consume(parser);
-			break;
-		case T_LET:
-			child = var_decl(parser);
-			break;
-		case T_CONST:
-			child = const_decl(parser);
-			break;
-		case T_FUNC:
-			child = func_decl(parser);
-			break;
-		case T_IDENT:
-		case T_INTEGER:
-			{
-				token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
-				ast_node_T* lhs;
-				if (next->type == T_LPAREN) {
-					child = func_call(parser);
-					consume(parser);
-					break;
-				} else if (next->type == T_LSQUARE) {
-					lhs = array_element(parser);
-				} else {
-					lhs = value(parser);
-				}
-
-				next = parser->tokens[parser->t_index];
-				log_debug(parser->debug, "next type: %s\n", token_get_name(next->type));
-				if (next->type == T_ASSIGN) {
-					child = assign(parser, lhs);
-					consume(parser);
-				} else {
-					child = bin_op(parser, lhs);
-					consume(parser);
-				}
+	while (1) {
+		switch (token->type) {
+			case T_SYSCALL:
+				child = syscall(parser);
+				consume(parser);
 				break;
-			}
+			case T_IF:
+				child = if_block(parser);
+				break;
+			case T_WHILE:
+				child = while_block(parser);
+				break;
+			case T_DUMP:
+				child = dump(parser);
+				consume(parser);
+				break;
+			case T_LET:
+				child = var_decl(parser);
+				break;
+			case T_CONST:
+				child = const_decl(parser);
+				break;
+			case T_FUNC:
+				child = func_decl(parser);
+				break;
+			case T_STRUCT:
+				struct_decl(parser);
+				token = parser->tokens[parser->t_index];
+				continue;
+			case T_IDENT:
+			case T_INTEGER:
+				{
+					token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
+					ast_node_T* lhs;
+					if (next->type == T_LPAREN) {
+						child = func_call(parser);
+						consume(parser);
+						break;
+					} else if (next->type == T_LSQUARE) {
+						lhs = array_element(parser);
+					} else {
+						lhs = value(parser);
+					}
 
-		default:
-			log_error(token->loc, 1, "Invalid token type in start of expression. %s cannot start an expression.\n", token_get_name(token->type));
+					next = parser->tokens[parser->t_index];
+					log_debug(parser->debug, "next type: %s\n", token_get_name(next->type));
+					if (next->type == T_ASSIGN) {
+						child = assign(parser, lhs);
+						consume(parser);
+					} else {
+						child = bin_op(parser, lhs);
+						consume(parser);
+					}
+					break;
+				}
+
+			default:
+				log_error(token->loc, 1, "Invalid token type in start of expression. %s cannot start an expression.\n", token_get_name(token->type));
+		}
+		return ast_new_expr(child);
 	}
-
-	return ast_new_expr(child);
 }
 
 // program : (expr)* ;

@@ -32,13 +32,9 @@ symbol_T* symbol_new_type(char* name, location_T* loc, size_t size, symbol_T** p
 		case 4:
 			s->operand = "DWORD";
 			break;
-		case 8:
+		default:
 			s->operand = "QWORD";
 			break;
-		ddefault:
-			printf("Invalid symbol size of '%zu' bytes", size);
-			exit(1);
-	
 	}
 
 	return (symbol_T*) s;
@@ -104,6 +100,19 @@ size_t symbol_get_prop_offset(symbol_T* type, char* propname) {
 	}
 
 	return -1;
+}
+
+symbol_T* symbol_get_prop_type(symbol_T* type, char* propname) {
+	symbol_type_T* t = (symbol_type_T*)type;
+
+	for (size_t i = 0; i < t->prop_count; i++) {
+		if (strcmp(t->props[i]->name, propname) == 0) {
+			symbol_prop_T* p = (symbol_prop_T*)t->props[i];
+			return p->type;
+		}
+	}
+
+	return NULL;
 }
 
 void func_add_param(symbol_func_T* func, symbol_T* param) {

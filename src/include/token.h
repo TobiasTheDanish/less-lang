@@ -27,6 +27,7 @@ typedef enum TOKEN_E {
 	T_LET,
 	T_CONST,
 	T_FUNC,
+	T_STRUCT,
 	T_ASSIGN,
 	T_IDENT,
 	T_COMMA,

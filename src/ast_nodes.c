@@ -91,6 +91,28 @@ ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_
 	return (ast_node_T*) func_call;
 }
 
+ast_node_T* ast_new_struct_init(ast_node_T** attributes, size_t attr_count, char* struct_name) {
+	ast_node_T* base = ast_new(AST_STRUCT_INIT, NULL);
+
+	ast_struct_init_T* node = malloc(sizeof(ast_struct_init_T));
+	node->base = *base;
+	node->attributes = attributes;
+	node->attr_count = attr_count;
+	node->struct_name = struct_name;
+
+	return (ast_node_T*) node;
+}
+
+ast_node_T* ast_new_attribute(token_T* name, ast_node_T* value) {
+	ast_node_T* base = ast_new(AST_ATTRIBUTE, name->loc);
+
+	ast_attribute_T* node = malloc(sizeof(ast_attribute_T));
+	node->base = *base;
+	node->name = name;
+	node->value = value;
+
+	return (ast_node_T*) node;
+}
 
 ast_node_T* ast_new_var_decl(ast_node_T* assign) {
 	ast_node_T* base = ast_new(AST_VAR_DECL, NULL);
@@ -281,6 +303,8 @@ char* ast_get_name(ast_node_E type) {
 		"Constant declaration", 
 		"Function declaration", 
 		"Function call", 
+		"Struct initialization", 
+		"Struct property initialization", 
 		"Assign", 
 		"While", 
 		"If",

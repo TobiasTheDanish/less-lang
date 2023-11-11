@@ -72,7 +72,10 @@ token_T* read_ident(lexer_T* lexer, location_T* loc) {
 		return token_new(T_SYSCALL, value, loc);
 	} else if (strcmp("func", value) == 0) {
 		return token_new(T_FUNC, value, loc);
+	} else if (strcmp("struct", value) == 0) {
+		return token_new(T_STRUCT, value, loc);
 	}
+
 
 	return token_new(T_IDENT, value, loc);
 }

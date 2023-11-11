@@ -8,6 +8,8 @@
 #include "include/symbol.h"
 #include "include/symbol_table.h"
 #include "include/token.h"
+#include <bits/pthreadtypes.h>
+#include <math.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -292,12 +294,12 @@ void compile_array(compiler_T* c, ast_node_T* node) {
 
 	append_file(c->file, "    ; -- init array --\n");
 	char str[50];
-	snprintf(str, 50, "    mov QWORD [mem+%zu], %s\n", (c->mem_pointer*8), arr->len->value);
+	snprintf(str, 50, "    mov QWORD [mem+%zu], %s\n", (c->mem_pointer), arr->len->value);
 	append_file(c->file, str);
-	snprintf(str, 50, "    push mem+%zu\n", c->mem_pointer*8);
+	snprintf(str, 50, "    push mem+%zu\n", c->mem_pointer);
 	append_file(c->file, str);
 
-	c->mem_pointer += atoi(arr->len->value);
+	c->mem_pointer += (atoi(arr->len->value) * 8);
 	c->stack_pointer += 1;
 }
 
@@ -516,6 +518,53 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 	append_file(c->file, str);
 }
 
+// attribute : ID ASSIGN (value | array_element | prop | bin_op | array) COMMA?
+void compile_prop_init(compiler_T* c, ast_node_T* node, symbol_T* type) {
+	ast_attribute_T* attr = (ast_attribute_T*)node;
+
+	size_t offset = symbol_get_prop_offset(type, attr->name->value);
+	symbol_type_T* prop_type = (symbol_type_T*)symbol_get_prop_type(type, attr->name->value);
+
+	if (attr->value->type == AST_PROP) {
+		compile_prop(c, attr->value);
+	} else if (attr->value->type == AST_ARRAY_ELEMENT) {
+		compile_array_element(c, attr->value);
+		append_file(c->file,  "    pop rax\n");
+		append_file(c->file,  "    push QWORD [rax]\n");
+	} else if (attr->value->type == AST_ARRAY) {
+		compile_array(c, attr->value);
+	} else if (attr->value->type == AST_BIN_OP) {
+		compile_bin_op(c, attr->value);
+	} else if (attr->value->type == AST_VALUE) {
+		compile_value(c, attr->value);
+	} else {
+		log_error(attr->value->loc, 1, "Unexpected node type as prop initialization, found '%s'.\n", ast_get_name(attr->value->type));
+	}
+
+	char str[50];
+	snprintf(str, 50, "    pop %s [mem+%zu]\n",prop_type->operand, c->mem_pointer);
+	append_file(c->file, str);
+	c->mem_pointer += prop_type->size;
+}
+
+// struct_init : ID LCURLY (attribute)* RCURLY ;
+void compile_struct_init(compiler_T* c, ast_node_T* node) {
+	ast_struct_init_T* structure = (ast_struct_init_T*) node;
+	symbol_type_T* symbol = (symbol_type_T*)symbol_table_get(c->s_table, structure->struct_name);
+
+	append_file(c->file, "    ; -- init struct --\n");
+
+	size_t base_addr = c->mem_pointer;
+
+	for (size_t i = 0; i < structure->attr_count; i++) {
+		compile_prop_init(c, structure->attributes[i], (symbol_T*)symbol);
+	}
+
+	char str[50];
+	snprintf(str, 50, "    push mem+%zu\n", base_addr);
+	append_file(c->file, str);
+}
+
 // assign : (ID | array_element) ASSIGN (value | bin_op | array | array_element | prop) ;
 void compile_assign(compiler_T* c, ast_node_T* node) {
 	ast_assign_T* a = (ast_assign_T*) node;
@@ -533,6 +582,8 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 				compile_prop(c, a->value);
 			} else if (a->value->type == AST_ARRAY) {
 				compile_array(c, a->value);
+			} else if (a->value->type == AST_STRUCT_INIT) {
+				compile_struct_init(c, a->value);
 			} else if (a->value->type == AST_ARRAY_ELEMENT) {
 				compile_array_element(c, a->value);
 				append_file(c->file,  "    pop rax\n");
@@ -690,7 +741,7 @@ void compile_func_decl(compiler_T* c, ast_node_T* node) {
 	if (strcmp(decl->ident->value, "main") == 0) {
 		append_file(c->file, "    sub rsp, ");
 		char str[20];
-		snprintf(str, 20, "%zu", (c->s_table->child_count+1)*8);
+		snprintf(str, 20, "%zu\n", (c->s_table->child_count+1)*8);
 		append_file(c->file, str);
 	}
 
