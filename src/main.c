@@ -1,7 +1,6 @@
 #include "include/compiler.h"
 #include "include/logger.h"
 #include "include/parser.h"
-#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,9 +15,11 @@ void call_cmd(const char* command) {
 
 void print_usage() {
 	printf("Usage of lessl compiler:\n");
-	printf("  -  lessl -h                     : Prints this message.\n");
-	printf("  -  lessl <filepath>             : Compiles the '.l' file at the given path.\n");
-	printf("  -  lessl <filepath> -o <output> : Compiles the '.l' file, and creates an assembly file at <output>.asm.\n");
+	printf("  *  lessl <filepath> <flags>     : Compiles the '.l' file at the given path.\n");
+	printf("Flags:\n");
+	printf("  *  -h                           : Prints this message.\n");
+	printf("  *  -o <output>                  : Specifies the output path for the compiled assembly and executable.\n");
+	printf("  *  -dbg                         : Prints debug information to std out during compilation.\n");
 }
 
 typedef struct{
@@ -34,20 +35,23 @@ args_t* parse_args(int argc, char** argv) {
 	}
 
 	args_t* args = malloc(sizeof(args_t));
-	args->filepath = (void*)0;
-	args->out_path = (void*)0;
+	args->filepath = malloc(sizeof(char));
+	args->out_path = malloc(sizeof(char));
 	args->debug = 0;
 
-	int i = 1;
-	while (i < argc) {
+	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-h") == 0) {
 			print_usage();
 			exit(1);
 		}
 
 		if (i == 1) {
+			log_debug(0, "Arg is src-filepath\n");
+			args->filepath = realloc(args->filepath, strlen(argv[i]));
 			args->filepath = argv[i];
 		} else if (strcmp(argv[i], "-o") == 0) {
+			log_debug(0, "Arg is src-filepath\n");
+			args->out_path = realloc(args->out_path, strlen(argv[i]));
 			args->out_path = argv[++i];
 		} else if (strcmp(argv[i], "-dbg") == 0) {
 			args->debug = 1;
@@ -56,12 +60,12 @@ args_t* parse_args(int argc, char** argv) {
 			print_usage();
 			exit(1);
 		}
-
-		i++;
 	}
 
-	if (args->out_path == (void*)0) {
+	if (args->filepath && strlen(args->out_path) == 0) {
+		args->out_path = realloc(args->out_path, strlen(args->filepath)-2);
 		strncpy(args->out_path, args->filepath, strlen(args->filepath)-2);
+		log_debug(0, "outpath: %s\n", args->out_path);
 	}
 
 	return args;
