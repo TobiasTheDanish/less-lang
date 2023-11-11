@@ -1,4 +1,5 @@
 #include "include/ast_nodes.h"
+#include "include/token.h"
 #include <stdlib.h>
 
 ast_node_T* ast_new(ast_node_E type, location_T* loc) {

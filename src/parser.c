@@ -412,13 +412,15 @@ ast_node_T* array(parser_T* parser) {
 
 	consume(parser);
 	consume(parser);
+
 	token_T* size = parser->tokens[parser->t_index];
+
 	consume(parser);
 	consume(parser);
 	return ast_new_array(type, elem_type, size);
 }
 
-// assign : (ID | array_element) ASSIGN (value | bin_op | array) ;
+// assign : (ID | array_element) ASSIGN (value | bin_op | array | array_element | prop) ;
 ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 	token_T* ident;
 	switch (lhs->type) {
@@ -470,10 +472,15 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 				symbol->type = arr->type;
 				symbol->elem_type = arr->elem_type;
 			}
+		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_DOT) {
+			v = prop(parser);
+			if (!symbol->is_assigned) {
+				symbol_var_T* var = (symbol_var_T*)s;
+				symbol->type = var->elem_type;
+			}
 		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
 			v = array_element(parser);
 			if (!symbol->is_assigned) {
-				ast_array_element_T* elem = (ast_array_element_T*) v;
 				symbol_var_T* var = (symbol_var_T*)s;
 				symbol->type = var->elem_type;
 			}
@@ -854,12 +861,9 @@ ast_node_T* program(parser_T* parser) {
 
 	while (token->type != T_EOF) {
 		expressions[count++] = expr(parser);
-		//count += 1;
-
 		expressions = realloc(expressions, (count + 1) * sizeof(ast_node_T*));
 
 		token = parser->tokens[parser->t_index];
-		//printf("number of expressions: %u\n", count);
 	} 
 
 	symbol_table_print(parser->s_table);

@@ -515,7 +515,7 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 	append_file(c->file, str);
 }
 
-// assign : (array_element | ID) ASSIGN (value | bin_op | array | array_element) ;
+// assign : (ID | array_element) ASSIGN (value | bin_op | array | array_element | prop) ;
 void compile_assign(compiler_T* c, ast_node_T* node) {
 	ast_assign_T* a = (ast_assign_T*) node;
 	symbol_T* sym = symbol_table_get(c->s_table, a->ident->value);
@@ -528,6 +528,8 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 				compile_value(c, a->value);
 			} else if (a->value->type == AST_BIN_OP) {
 				compile_bin_op(c, a->value);
+			} else if (a->value->type == AST_PROP) {
+				compile_prop(c, a->value);
 			} else if (a->value->type == AST_ARRAY) {
 				compile_array(c, a->value);
 			} else if (a->value->type == AST_ARRAY_ELEMENT) {
