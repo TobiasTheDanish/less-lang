@@ -13,10 +13,12 @@
 
 #define SYMBOL_SIZE 8
 
+ast_node_T* array_expr(parser_T* parser);
 ast_node_T* expr(parser_T* parser);
 ast_node_T* if_block(parser_T* parser);
+ast_node_T* array_element(parser_T* parser);
 
-parser_T* parser_new(lexer_T* lexer, size_t t_count) {
+parser_T* parser_new(lexer_T* lexer, size_t t_count, unsigned char debug_info) {
 	parser_T* parser = malloc(sizeof(parser_T));
 	parser->lexer = lexer;
 	parser->if_count = 0;
@@ -25,6 +27,7 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 	parser->t_count = t_count;
 	parser->t_index = 0;
 	parser->tokens = malloc(t_count * sizeof(token_T*));
+	parser->debug = debug_info;
 
 	for (size_t i = 0; i < t_count; i++) {
 		parser->tokens[i] = lexer_next_token(lexer);
@@ -34,8 +37,8 @@ parser_T* parser_new(lexer_T* lexer, size_t t_count) {
 }
 
 void consume(parser_T* parser) {
-	//token_T* t = parser->tokens[parser->t_index];
-	//log_info("Token: (%s, %s)\n", token_get_name(t->type), t->value);
+	token_T* t = parser->tokens[parser->t_index];
+	log_debug(parser->debug, "Token: (%s, %s)\n", token_get_name(t->type), t->value);
 
 	parser->tokens[parser->t_index] = lexer_next_token(parser->lexer);
 	parser->t_index = (parser->t_index + 1) % parser->t_count;
@@ -61,6 +64,7 @@ ast_node_T* prop(parser_T* parser) {
 
 // value: (POINTER | ID | INT | STRING);
 ast_node_T* value(parser_T* parser) {
+	log_debug(parser->debug, "Parse value\n");
 	ast_node_T* res;
 	token_T* token = parser->tokens[parser->t_index];
 
@@ -68,7 +72,7 @@ ast_node_T* value(parser_T* parser) {
 		case T_POINTER: 
 			if (symbol_table_contains(parser->s_table, token->value)) {
 				symbol_var_T* var = (symbol_var_T*)symbol_table_get(parser->s_table, token->value);
-				//log_info("<%s, %s>\n", token->value, var->type->name);
+				//log_debug(parser->debug, "<%s, %s>\n", token->value, var->type->name);
 				res = ast_new_value(token, var->type);
 				consume(parser);
 				break;
@@ -78,7 +82,7 @@ ast_node_T* value(parser_T* parser) {
 		case T_IDENT:
 			if (symbol_table_contains(parser->s_table, token->value)) {
 				symbol_var_T* var = (symbol_var_T*)symbol_table_get(parser->s_table, token->value);
-				//log_info("<%s, %s>\n", token->value, var->type->name);
+				//log_debug(parser->debug, "<%s, %s>\n", token->value, var->type->name);
 				res = ast_new_value(token, var->type);
 				consume(parser);
 				break;
@@ -106,6 +110,7 @@ ast_node_T* value(parser_T* parser) {
 
 // op: (PLUS | MINUS | MULTIPLY | DIVIDE);
 ast_node_T* op(parser_T* parser) {
+	log_debug(parser->debug, "Parse op\n");
 	ast_node_T* res;
 	token_T* token = parser->tokens[parser->t_index];
 
@@ -127,41 +132,77 @@ ast_node_T* op(parser_T* parser) {
 }
 
 
-// bin_op: value op (bin_op | value) ;
-ast_node_T* bin_op(parser_T* parser) {
-	ast_value_T* lhs = (ast_value_T*) value(parser);
+// bin_op: (value | prop | array_element) op (bin_op | value | prop | array_element) ;
+ast_node_T* bin_op(parser_T* parser, ast_node_T* lhs) {
+	log_debug(parser->debug, "Parse bin op\n");
+	token_T* current = parser->tokens[parser->t_index];
+	symbol_type_T* lhs_type;
+	if (lhs->type == AST_PROP) {
+		ast_prop_T* v = (ast_prop_T*)lhs;
+		symbol_var_T* prop_sym = (symbol_var_T*) symbol_table_get(parser->s_table, v->parent_sym->name);
+		lhs_type = (symbol_type_T*)prop_sym->elem_type;
+	} else if (lhs->type == AST_ARRAY_ELEMENT) {
+		ast_array_element_T* v = (ast_array_element_T*)lhs;
+		symbol_var_T* elem_sym = (symbol_var_T*) symbol_table_get(parser->s_table, v->ident->value);
+		lhs_type = (symbol_type_T*)elem_sym->elem_type;
+	} else {
+		ast_value_T* v = (ast_value_T*) lhs;
+		lhs_type = (symbol_type_T*)v->type_sym;
+	}
 	ast_node_T* operation = op(parser);
 
 	ast_node_T* rhs;
 	symbol_type_T* type;
-	token_T* current = parser->tokens[parser->t_index];
+	current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
 
-	if ((current->type == T_INTEGER || current->type == T_IDENT) && token_is_op(next)) {
-		rhs = bin_op(parser);
-		ast_bin_op_T* b = (ast_bin_op_T*) rhs;
-		if (strcmp(lhs->type_sym->name, b->type_sym->name) == 0) {
-			type = (symbol_type_T*) lhs->type_sym;
+	if ((current->type == T_INTEGER || current->type == T_IDENT) && next->type == T_LSQUARE) {
+		rhs = array_element(parser);
+		ast_array_element_T* v = (ast_array_element_T*) rhs;
+		symbol_var_T* elem_sym = (symbol_var_T*) symbol_table_get(parser->s_table, v->ident->value);
+		if (lhs_type != NULL && elem_sym->elem_type != NULL && strcmp(lhs_type->base.name, elem_sym->elem_type->name) == 0) {
+			type = lhs_type;
 		} else {
-			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type_sym->name, b->type_sym->name);
+			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, elem_sym->elem_type->name);
+		}
+	} else if ((current->type == T_INTEGER || current->type == T_IDENT) && next->type == T_DOT) {
+		rhs = prop(parser);
+		ast_prop_T* v = (ast_prop_T*) rhs;
+		symbol_var_T* prop_sym = (symbol_var_T*) symbol_table_get(parser->s_table, v->parent_sym->name);
+		if (lhs_type != NULL && prop_sym->type != NULL && strcmp(lhs_type->base.name, prop_sym->elem_type->name) == 0) {
+			type = lhs_type;
+		} else {
+			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, prop_sym->elem_type->name);
 		}
 	} else if (current->type == T_INTEGER || current->type == T_IDENT) {
 		rhs = value(parser);
 		ast_value_T* v = (ast_value_T*) rhs;
-		if (lhs->type_sym != NULL && v->type_sym != NULL && strcmp(lhs->type_sym->name, v->type_sym->name) == 0) {
-			type = (symbol_type_T*) lhs->type_sym;
+		if (lhs_type != NULL && v->type_sym != NULL && strcmp(lhs_type->base.name, v->type_sym->name) == 0) {
+			type = lhs_type;
 		} else {
-			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs->type_sym->name, v->type_sym->name);
+			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, v->type_sym->name);
 		}
 	} else {
 		log_error(current->loc, 1, "Invalid token type for rhs in bin_op. Found: %s, expected an identifier, value or bin_op\n", token_get_name(current->type));
 	}
 
+	current = parser->tokens[parser->t_index];
+	if (token_is_op(current)) {
+		rhs = bin_op(parser, rhs);
+		ast_bin_op_T* b = (ast_bin_op_T*) rhs;
+		if (lhs_type != NULL && b->type_sym != NULL && strcmp(lhs_type->base.name, b->type_sym->name) == 0) {
+			type = lhs_type;
+		} else {
+			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, b->type_sym->name);
+		}
+	}
+
 	return ast_new_bin_op((ast_node_T*)lhs, operation, rhs, (symbol_T*)type);
 }
 
-// array_element : ID LSQUARE (array_element | IDENT | INTEGER | bin_op) RSQUARE ;
+// array_element : ID LSQUARE (array_element | IDENT | INTEGER | bin_op | prop) RSQUARE ;
 ast_node_T* array_element(parser_T* parser) {
+	log_debug(parser->debug, "Parse array element\n");
 	token_T* ident = parser->tokens[parser->t_index];
 
 	consume(parser);
@@ -173,39 +214,51 @@ ast_node_T* array_element(parser_T* parser) {
 	token_T* next = parser->tokens[(parser->t_index+1) % parser->t_count];
 	if (next->type == T_LSQUARE) {
 		offset = array_element(parser);
-	} else if (token_is_op(next)) {
-		offset = bin_op(parser);
+	} else if (next->type == T_DOT) {
+		offset = prop(parser);
 	} else {
 		offset = value(parser);
 	}
+
+	if (token_is_op(parser->tokens[parser->t_index])) {
+		offset = bin_op(parser, offset);
+	}
+
 	consume(parser);
 
 	return ast_new_array_element(ident, offset);
 }
 
-// dump: DUMP (bin_op | value);
+// dump: DUMP (bin_op | value | array_element | prop);
 ast_node_T* dump(parser_T* parser) {
+	log_debug(parser->debug, "Parse dump\n");
 	consume(parser);
+
 	ast_node_T* val;
 	token_T* next = parser->tokens[(parser->t_index+1) % parser->t_count];
-	if (token_is_op(next)) {
-		val = bin_op(parser);
-	} else if (next->type == T_LSQUARE) {
+	if (next->type == T_LSQUARE) {
 		val = array_element(parser);
+	} else if (next->type == T_DOT) {
+		val = prop(parser);
 	} else {
 		val = value(parser);
 	}
 
+	if (token_is_op(parser->tokens[parser->t_index])) {
+		val = bin_op(parser, val);
+	} 
+
 	return ast_new_dump(val);
 }
 
-// cond_op : (EQUALS | LESS | GREATER);
+// cond_op : (EQUALS | NOT_EQUALS | LESS | GREATER);
 ast_node_T* cond_op(parser_T* parser) {
 	ast_node_T* res;
 	token_T* token = parser->tokens[parser->t_index];
 
 	switch (token->type) {
 		case T_EQUALS:
+		case T_NOT_EQUALS:
 		case T_LESS:
 		case T_GREATER:
 			res = ast_new_cond_op(token);
@@ -219,30 +272,65 @@ ast_node_T* cond_op(parser_T* parser) {
 	return res;
 }
 
+// logical_op : (AND | OR) ;
+ast_node_T* logical_op(parser_T* parser) {
+	ast_node_T* res;
+	token_T* token = parser->tokens[parser->t_index];
 
-// conditional : (value | bin_op | prop) cond_op (value | bin_op | prop) ;
+	switch (token->type) {
+		case T_AND:
+		case T_OR:
+			res = ast_new_logical_op(token);
+			consume(parser);
+			break;
+
+		default:
+			log_error(token->loc, 1, "Invalid token type for cond_op. Found: %s.\n", token_get_name(token->type));
+	}
+
+	return res;
+}
+
+// conditional : (array_element | value | bin_op | prop) cond_op (value | bin_op | prop | array_element) (logical_op conditional)* ;
 ast_node_T* conditional(parser_T* parser) {
 	ast_node_T* lhs;
 	token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
-	if (token_is_op(next)) {
-		lhs = bin_op(parser);
-	} else if (next->type == T_DOT) {
+	if (next->type == T_DOT) {
 		lhs = prop(parser);
+	} else if (next->type == T_LSQUARE) {
+		lhs = array_element(parser);
 	} else {
 		lhs = value(parser);
 	}
+
+	if (token_is_op(parser->tokens[parser->t_index])) {
+		lhs = bin_op(parser, lhs);
+	}
+
 	ast_node_T* operation = cond_op(parser);
 	ast_node_T* rhs;
 	next = parser->tokens[(parser->t_index + 1) % parser->t_count];
-	if (token_is_op(next)) {
-		rhs = bin_op(parser);
-	} else if (next->type == T_DOT) {
+	if (next->type == T_DOT) {
 		rhs = prop(parser);
+	} else if (next->type == T_LSQUARE) {
+		rhs = array_element(parser);
 	} else {
 		rhs = value(parser);
 	}
 
-	return ast_new_cond(lhs, operation, rhs);
+	if (token_is_op(parser->tokens[parser->t_index])) {
+		rhs = bin_op(parser, rhs);
+	}
+	
+	next = parser->tokens[parser->t_index];
+	if (token_is_logical(next)) {
+		ast_node_T* logical = logical_op(parser);
+		ast_node_T* c = conditional(parser);
+
+		return ast_new_cond(lhs, operation, rhs, logical, c);
+	}
+
+	return ast_new_cond(lhs, operation, rhs, NULL, NULL);
 }
 
 // block : LCURLY (expr)* RCURLY ;
@@ -325,47 +413,96 @@ ast_node_T* array(parser_T* parser) {
 
 	consume(parser);
 	consume(parser);
+
 	token_T* size = parser->tokens[parser->t_index];
+
 	consume(parser);
 	consume(parser);
 	return ast_new_array(type, elem_type, size);
 }
 
-// assign : ID ASSIGN (value | bin_op | array) ;
-ast_node_T* assign(parser_T* parser) {
-	token_T* ident = parser->tokens[parser->t_index];
+// assign : (ID | array_element) ASSIGN (value | bin_op | array | array_element | prop) ;
+ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
+	token_T* ident;
+	switch (lhs->type) {
+		case AST_ARRAY_ELEMENT:
+			{
+				ast_array_element_T* e = (ast_array_element_T*) lhs;
+				ident = e->ident;
+			}
+			break;
+
+		case AST_VALUE:
+			{
+				ast_value_T* e = (ast_value_T*) lhs;
+				ident = e->t;
+			}
+			break;
+				
+		default:
+			log_error(lhs->loc, 1, "Invalid left hand side of assignment. Cannot assign to %s.\n", ast_get_name(lhs->type));
+	}
+
 	if (symbol_table_contains(parser->s_table, ident->value)) {
 		symbol_var_T* symbol = (symbol_var_T*)symbol_table_get(parser->s_table, ident->value);
 		if (symbol->is_const) {
 			log_error(ident->loc, -1, "Cannot reassign constant identifier '%s'\n", ident->value);
 			location_T* loc = symbol->base.loc;
-			log_info("Constant identifier '%s' first defined here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
+			log_debug(parser->debug, "Constant identifier '%s' first defined here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
 			exit(1);
-		} else if (!symbol->is_mut && symbol->is_assigned) {
+		} else if (!symbol->is_mut && symbol->is_assigned && lhs->type != AST_ARRAY_ELEMENT) {
 			log_error(ident->loc, -1, "Cannot reassign immutable variable '%s'\n", ident->value);
 			location_T* loc = symbol->base.loc;
-			log_info("Consider adding 'mut' to declaration of '%s' here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
+			log_debug(parser->debug, "Consider adding 'mut' to declaration of '%s' here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
 			exit(1);
 		}
 		consume(parser);
-		consume(parser);
+
+		symbol_T* s = symbol_table_get(parser->s_table, parser->tokens[parser->t_index]->value);
 		ast_node_T* v;
-		if (token_is_op(parser->tokens[(parser->t_index + 1) %parser->t_count])) {
-			v = bin_op(parser);
-			ast_bin_op_T* val = (ast_bin_op_T*) v;
-			symbol->type = val->type_sym;
-		} else if (parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
+		if (s == NULL){
+			v = value(parser);
+			if (!symbol->is_assigned) {
+				ast_value_T* val = (ast_value_T*) v;
+				symbol->type = val->type_sym;
+			}
+		} else if (s->type == SYM_VAR_TYPE && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
 			v = array(parser);
-			ast_array_T* arr = (ast_array_T*) v;
-			symbol->type = arr->type;
+			if (!symbol->is_assigned) {
+				ast_array_T* arr = (ast_array_T*) v;
+				symbol->type = arr->type;
+				symbol->elem_type = arr->elem_type;
+			}
+		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_DOT) {
+			v = prop(parser);
+			if (!symbol->is_assigned) {
+				symbol_var_T* var = (symbol_var_T*)s;
+				symbol->type = var->elem_type;
+			}
+		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
+			v = array_element(parser);
+			if (!symbol->is_assigned) {
+				symbol_var_T* var = (symbol_var_T*)s;
+				symbol->type = var->elem_type;
+			}
 		} else {
 			v = value(parser);
-			ast_value_T* val = (ast_value_T*) v;
-			symbol->type = val->type_sym;
+			if (!symbol->is_assigned) {
+				ast_value_T* val = (ast_value_T*) v;
+				symbol->type = val->type_sym;
+			}
+		}
+
+		if (token_is_op(parser->tokens[parser->t_index])) {
+			v = bin_op(parser, v);
+			if (!symbol->is_assigned) {
+				ast_bin_op_T* val = (ast_bin_op_T*) v;
+				symbol->type = val->type_sym;
+			}
 		}
 
 		symbol->is_assigned = 1;
-		return ast_new_assign(ident, v);
+		return ast_new_assign(ident, lhs, v);
 	} else {
 		log_error(ident->loc, 1, "Use of '%s', before declaration.\n", ident->value);
 		return NULL; //unreachable
@@ -386,8 +523,9 @@ ast_node_T* var_decl(parser_T* parser) {
 		char* name = token->value;
 		symbol_T* s = symbol_new_var(name, token->loc, NULL, is_mut, 0, 0, 0);
 		symbol_table_put(parser->s_table, s);
+		ast_node_T* lhs = value(parser);
 
-		ast_node_T* a = assign(parser);
+		ast_node_T* a = assign(parser, lhs);
 
 		consume(parser);
 		return ast_new_var_decl(a);
@@ -421,18 +559,27 @@ ast_node_T* const_decl(parser_T* parser) {
 	}
 }
 
-// sys_arg : (bin_op | value);
+// sys_arg : (bin_op | value | prop | array_element);
 ast_node_T* sys_arg(parser_T* parser) {
 	token_T* current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
 	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING) { 
-		if (token_is_op(next)) {
-			return bin_op(parser);
-		} else {
-			return value(parser);
+		ast_node_T* node;
+		if (next->type == T_LSQUARE) {
+			node = array_element(parser);
+		} else if (next->type == T_DOT) {
+			node = prop(parser);
+		}else {
+			node = value(parser);
 		}
+
+		if (token_is_op(next)) {
+			node = bin_op(parser, node);
+		}
+
+		return node;
 	} else {
-		log_error(current->loc, 1, "Unexpected token in param, found: %s.\n", token_get_name(current->type));
+		log_error(current->loc, 1, "Unexpected token in sys_arg, found: %s.\n", token_get_name(current->type));
 		return NULL; //unreachable
 	}
 }
@@ -525,7 +672,7 @@ ast_node_T* func_decl(parser_T* parser) {
 
 	ast_node_T* b = block(parser);
 
-	symbol_table_print(parser->s_table);
+	if (parser->debug) symbol_table_print(parser->s_table);
 
 	func_table = parser->s_table;
 	parser->s_table = parent;
@@ -535,28 +682,38 @@ ast_node_T* func_decl(parser_T* parser) {
 	return ast_new_func_decl(ident, params, count, b);
 }
 
-// arg : (value | bin_op) ;
+// arg : (value | bin_op | array_element) ;
 ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 	token_T* current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[((parser->t_index + 1) %parser->t_count)];
 	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING) { 
+		ast_node_T* node;
+		if (next->type == T_LSQUARE) {
+			node = array_element(parser);
+			ast_array_element_T* val = (ast_array_element_T*)node;
+			symbol_var_T* arr = (symbol_var_T*)symbol_table_get(parser->s_table, val->ident->value);
+			if (strcmp(arr->elem_type->name, param->type->name) != 0) {
+				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", arr->elem_type->name, param->type->name);
+			}
+		} else {
+			node = value(parser);
+			ast_value_T* val = (ast_value_T*)node;
+			if (strcmp(val->type_sym->name, param->type->name) != 0) {
+				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", val->type_sym->name, param->type->name);
+			}
+		}
+
+		next = parser->tokens[parser->t_index];
 		if (token_is_op(next)) {
-			ast_node_T* n = bin_op(parser);
+			ast_node_T* n = bin_op(parser, n);
 			ast_bin_op_T* b = (ast_bin_op_T*)n;
 			if (strcmp(b->type_sym->name, param->type->name) != 0) {
 				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", b->type_sym->name, param->type->name);
 			}
 
-			return n;
-		} else {
-			ast_node_T* n = value(parser);
-			ast_value_T* val = (ast_value_T*)n;
-			if (strcmp(val->type_sym->name, param->type->name) != 0) {
-				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", val->type_sym->name, param->type->name);
-			}
+		} 
 
-			return n;
-		}
+		return node;
 	} else {
 		log_error(current->loc, 1, "Unexpected token in param, found: %s.\n", token_get_name(current->type));
 		return NULL; //unreachable
@@ -565,10 +722,11 @@ ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 
 // func_call : ID LPAREN (arg (COMMA arg)*)? RPAREN ;
 ast_node_T* func_call(parser_T* parser) {
+	log_debug(parser->debug, "parse func call\n");
 	token_T* ident = parser->tokens[parser->t_index];
 	symbol_T* func_sym = symbol_table_get(parser->s_table, ident->value);
 	if (func_sym == NULL || func_sym->type != SYM_FUNC) {
-		log_error(ident->loc, 1, "Unknown function, is attempted to be called, found: %s.\n", token_get_name(ident->type));
+		log_error(ident->loc, 1, "Unknown function '%s' is attempted to be called.\n", token_get_name(ident->type));
 	}
 	symbol_func_T* func = (symbol_func_T*) func_sym;
 	consume(parser);
@@ -597,13 +755,16 @@ ast_node_T* func_call(parser_T* parser) {
 	return ast_new_func_call(ident, params, count);
 }
 
-// array_expr : array_element (ASSIGN | op) (value | bin_op | array) ;
+// array_expr : array_element ( SEMI | ((ASSIGN | op) (array_expr | value | bin_op | array))) ;
 ast_node_T* array_expr(parser_T* parser) {
+	log_debug(parser->debug, "parse array expr\n");
 	ast_node_T* elem = array_element(parser);
 
 	token_T* t = parser->tokens[parser->t_index];
 	ast_node_T* operation;
-	if (token_is_op(t)) {
+	if (t->type == T_SEMI) {
+		return elem;
+	} else if (token_is_op(t)) {
 		operation = op(parser);
 	} else {
 		operation = NULL;
@@ -613,9 +774,14 @@ ast_node_T* array_expr(parser_T* parser) {
 	token_T* next = parser->tokens[(parser->t_index+1)%parser->t_count];
 	ast_node_T* rhs;
 	if (token_is_op(next)) {
-		rhs = bin_op(parser);
+		//rhs = bin_op(parser);
 	} else if (next->type == T_LSQUARE) {
-		rhs = array(parser);
+		symbol_T* s = symbol_table_get(parser->s_table, parser->tokens[parser->t_index]->value);
+		if (s->type == SYM_VAR_TYPE) {
+			rhs = array(parser);
+		} else {
+			rhs = array_expr(parser);
+		}
 	} else {
 		rhs = value(parser);
 	}
@@ -653,31 +819,34 @@ ast_node_T* expr(parser_T* parser) {
 			child = func_decl(parser);
 			break;
 		case T_IDENT:
+		case T_INTEGER:
 			{
 				token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
-				if (next->type == T_LSQUARE) {
-					child = array_expr(parser);
-					consume(parser);
-					break;
-				} else if (next->type == T_ASSIGN) {
-					child = assign(parser);
-					consume(parser);
-				} else if (next->type == T_LPAREN) {
+				ast_node_T* lhs;
+				if (next->type == T_LPAREN) {
 					child = func_call(parser);
 					consume(parser);
+					break;
+				} else if (next->type == T_LSQUARE) {
+					lhs = array_element(parser);
 				} else {
-					child = bin_op(parser);
+					lhs = value(parser);
+				}
+
+				next = parser->tokens[parser->t_index];
+				log_debug(parser->debug, "next type: %s\n", token_get_name(next->type));
+				if (next->type == T_ASSIGN) {
+					child = assign(parser, lhs);
+					consume(parser);
+				} else {
+					child = bin_op(parser, lhs);
 					consume(parser);
 				}
 				break;
 			}
-		case T_INTEGER:
-			child = bin_op(parser);
-			consume(parser);
-			break;
 
 		default:
-			log_error(token->loc, 1, "Invalid token type in expression. Found: %s.\n", token_get_name(token->type));
+			log_error(token->loc, 1, "Invalid token type in start of expression. %s cannot start an expression.\n", token_get_name(token->type));
 	}
 
 	return ast_new_expr(child);
@@ -693,15 +862,12 @@ ast_node_T* program(parser_T* parser) {
 
 	while (token->type != T_EOF) {
 		expressions[count++] = expr(parser);
-		//count += 1;
-
 		expressions = realloc(expressions, (count + 1) * sizeof(ast_node_T*));
 
 		token = parser->tokens[parser->t_index];
-		//printf("number of expressions: %u\n", count);
 	} 
 
-	symbol_table_print(parser->s_table);
+	if (parser->debug) symbol_table_print(parser->s_table);
 
 	return ast_new_program(expressions, count);
 }

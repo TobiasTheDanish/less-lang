@@ -1,4 +1,5 @@
 #include "include/ast_nodes.h"
+#include "include/token.h"
 #include <stdlib.h>
 
 ast_node_T* ast_new(ast_node_E type, location_T* loc) {
@@ -113,12 +114,13 @@ ast_node_T* ast_new_const_decl(token_T* ident, ast_node_T* value, char* type) {
 	return (ast_node_T*) decl;
 }
 
-ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value) {
+ast_node_T* ast_new_assign(token_T* ident, ast_node_T* lhs, ast_node_T* value) {
 	ast_node_T* base = ast_new(AST_ASSIGN, ident->loc);
 
 	ast_assign_T* assign = malloc(sizeof(ast_assign_T));
 	assign->base = *base;
 	assign->ident = ident;
+	assign->lhs = lhs;
 	assign->value = value;
 
 	return (ast_node_T*) assign;
@@ -160,7 +162,7 @@ ast_node_T* ast_new_else(size_t index, ast_node_T* block){
 	return (ast_node_T*) elze;
 }
 
-ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs) {
+ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, ast_node_T* logical, ast_node_T* conditional) {
 	ast_node_T* base = ast_new(AST_CONDITIONAL, NULL);
 
 	ast_cond_T* cond = malloc(sizeof(ast_cond_T));
@@ -168,6 +170,8 @@ ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs) {
 	cond->lhs = lhs;
 	cond->rhs = rhs;
 	cond->op = op;
+	cond->logical = logical;
+	cond->cond = conditional;
 
 	return (ast_node_T*) cond;
 }
@@ -176,6 +180,15 @@ ast_node_T* ast_new_cond_op(token_T* t) {
 	ast_node_T* base = ast_new(AST_COND_OP, t->loc);
 
 	ast_cond_op_T* op = malloc(sizeof(ast_cond_op_T));
+	op->base = *base;
+	op->t = t;
+	return (ast_node_T*) op;
+}
+
+ast_node_T* ast_new_logical_op(token_T* t) {
+	ast_node_T* base = ast_new(AST_LOGICAL_OP, t->loc);
+
+	ast_logical_op_T* op = malloc(sizeof(ast_logical_op_T));
 	op->base = *base;
 	op->t = t;
 	return (ast_node_T*) op;
@@ -252,7 +265,7 @@ ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop) {
 	ast_prop_T* p = malloc(sizeof(ast_prop_T));
 	p->base = *base;
 	p->parent_sym = parent_sym;
-	p->prop = p->prop;
+	p->prop = prop;
 
 	return (ast_node_T*) p;
 }
@@ -274,6 +287,7 @@ char* ast_get_name(ast_node_E type) {
 		"Else",
 		"Conditional",
 		"Conditional operater",
+		"Logical operater",
 		"Binary operation", 
 		"Operation", 
 		"Value", 

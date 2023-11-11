@@ -59,6 +59,7 @@ symbol_T* symbol_new_var(char* name, location_T* loc, symbol_T* type, unsigned c
 
 	var->base = *symbol_new(name, SYM_VAR, loc);
 	var->type = type;
+	var->elem_type = NULL;
 	var->index = -1;
 	var->is_mut = is_mut;
 	var->is_assigned = 0;
@@ -90,6 +91,19 @@ bool symbol_is_prop(symbol_T* type, char* propname) {
 	}
 
 	return false;
+}
+
+size_t symbol_get_prop_offset(symbol_T* type, char* propname) {
+	symbol_type_T* t = (symbol_type_T*)type;
+
+	for (size_t i = 0; i < t->prop_count; i++) {
+		if (strcmp(t->props[i]->name, propname) == 0) {
+			symbol_prop_T* p = (symbol_prop_T*)t->props[i];
+			return p->offset;
+		}
+	}
+
+	return -1;
 }
 
 void func_add_param(symbol_func_T* func, symbol_T* param) {

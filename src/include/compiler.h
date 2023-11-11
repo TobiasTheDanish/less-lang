@@ -11,9 +11,11 @@ typedef struct COMPILER_STRUCT {
 	data_table_T* data_table;
 	file_T* file;
 	size_t stack_pointer;
+	size_t mem_pointer;
+	unsigned char debug;
 } compiler_T;
 
-compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, data_table_T* data_table, char* output_file);
+compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, data_table_T* data_table, char* output_file, unsigned char debug);
 
 void compile(compiler_T* c);
 

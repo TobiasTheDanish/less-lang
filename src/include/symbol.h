@@ -20,6 +20,7 @@ typedef struct SYMBOL_BASE_STRUCT {
 typedef struct SYMBOL_VAR_STRUCT {
 	symbol_T base;
 	symbol_T* type;
+	symbol_T* elem_type;
 	size_t index;
 	unsigned char is_mut;
 	unsigned char is_assigned;
@@ -59,6 +60,8 @@ symbol_T* symbol_new_var(char* name, location_T* loc, symbol_T* type, unsigned c
 symbol_T* symbol_new_func(char* name, location_T* loc);
 
 bool symbol_is_prop(symbol_T* type, char* propname);
+
+size_t symbol_get_prop_offset(symbol_T* type, char* propname);
 
 void func_add_param(symbol_func_T* func, symbol_T* param);
 

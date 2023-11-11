@@ -9,7 +9,6 @@
 lexer_T* lexer_from_file(char* filePath){
 	file_T* file = open_file(filePath);
 	char* content = read_file(file);
-	log_info("src: \n%s\n", content);
 
 	lexer_T* lexer = malloc(sizeof(lexer_T));
 	lexer->content = content;
@@ -189,8 +188,11 @@ token_T* lexer_next_token(lexer_T* lexer) {
 			return read_string(lexer, loc);
 		}
 
-		if (lexer->c == '&') {
+		if (lexer->c == '&' && peek(lexer) != '&') {
 			return read_pointer(lexer, loc);
+		} else if (lexer->c == '&') {
+			advance(lexer);
+			return advance_with_token(lexer, T_AND, loc);
 		}
 
 		if (isalpha(lexer->c) || lexer->c == '_') {
@@ -226,6 +228,23 @@ token_T* lexer_next_token(lexer_T* lexer) {
 
 			case '*':
 				return advance_with_token(lexer, T_MULTIPLY, loc);
+
+			case '!':
+				{
+					char next = peek(lexer);
+					switch (next) {
+						case '=':
+							{
+								char* val = calloc(3, sizeof(char));
+								val[0] = lexer->c;
+								advance(lexer);
+								val[1] = lexer->c;
+								advance(lexer);
+								return token_new(T_NOT_EQUALS, val, loc);
+							}
+					}
+					break;
+				}
 
 			case '/':
 				{
@@ -280,6 +299,14 @@ token_T* lexer_next_token(lexer_T* lexer) {
 
 			case '>':
 				return advance_with_token(lexer, T_GREATER, loc);
+
+			case '|':
+				{
+					if (peek(lexer) == '|') {
+						advance(lexer);
+						return advance_with_token(lexer, T_OR, loc);
+					}
+				}
 		
 			default:
 				log_warning("Unexpected character when lexing: '%c' '%s'.\n", lexer->c, lexer->c);

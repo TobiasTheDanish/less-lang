@@ -20,6 +20,7 @@ typedef enum AST_NODE_E {
 	AST_ELSE,
 	AST_CONDITIONAL,
 	AST_COND_OP,
+	AST_LOGICAL_OP,
 	AST_BIN_OP,
 	AST_OP,
 	AST_VALUE,
@@ -95,6 +96,7 @@ typedef struct AST_NODE_CONST_DECL {
 typedef struct AST_NODE_ASSIGN {
 	ast_node_T base;
 	token_T* ident;
+	ast_node_T* lhs;
 	ast_node_T* value;
 } ast_assign_T;
 
@@ -124,12 +126,19 @@ typedef struct AST_NODE_CONDITIONAL {
 	ast_node_T* lhs;
 	ast_node_T* op;
 	ast_node_T* rhs;
+	ast_node_T* logical;
+	ast_node_T* cond;
 } ast_cond_T;
 
 typedef struct AST_NODE_COND_OP {
 	ast_node_T base;
 	token_T* t;
 } ast_cond_op_T;
+
+typedef struct AST_NODE_LOGICAL_OP {
+	ast_node_T base;
+	token_T* t;
+} ast_logical_op_T;
 
 typedef struct AST_NODE_BIN_OP {
 	ast_node_T base;
@@ -184,12 +193,13 @@ ast_node_T* ast_new_func_decl(token_T* ident, token_T** params, size_t param_cou
 ast_node_T* ast_new_func_call(token_T* ident, ast_node_T** params, size_t param_count);
 ast_node_T* ast_new_var_decl(ast_node_T* assign);
 ast_node_T* ast_new_const_decl(token_T* ident, ast_node_T* value, char* type);
-ast_node_T* ast_new_assign(token_T* ident, ast_node_T* value);
+ast_node_T* ast_new_assign(token_T* ident,ast_node_T* lhs, ast_node_T* value);
 ast_node_T* ast_new_while(size_t index, ast_node_T* cond, ast_node_T* block);
 ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_node_T* elze);
 ast_node_T* ast_new_else(size_t index, ast_node_T* block);
-ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs);
+ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, ast_node_T* logical, ast_node_T* cond);
 ast_node_T* ast_new_cond_op(token_T* t);
+ast_node_T* ast_new_logical_op(token_T* t);
 ast_node_T* ast_new_bin_op(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, symbol_T* type);
 ast_node_T* ast_new_op(token_T* t);
 ast_node_T* ast_new_value(token_T* t, symbol_T* type);
