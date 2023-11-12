@@ -65,10 +65,10 @@ C-style syntax
 - [x] Support for Linux syscalls
 - [x] String literals
 - [x] Functions
-- [ ] Identifier properties
-- [ ] Arrays
+- [x] Identifier properties
+- [x] Arrays
+- [x] Structs
 - [ ] Import of other source files
-- [ ] Structs
 
 
 
@@ -227,6 +227,29 @@ func main() {
 ```
 
 NOTE: For now any function referenced in another function have to be declared first, reading from top to bottom.
+
+
+---
+
+### Arrays
+
+TODO
+
+
+---
+
+
+### Structs
+
+TODO
+
+
+---
+
+
+### properties
+
+TODO
 
 
 ---

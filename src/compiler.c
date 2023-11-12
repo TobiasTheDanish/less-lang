@@ -303,6 +303,8 @@ void compile_array(compiler_T* c, ast_node_T* node) {
 	c->stack_pointer += 1;
 }
 
+
+
 void compile_dump(compiler_T* c, ast_node_T* node) {
 	log_debug(c->debug, "compile dump\n");
 	ast_dump_T* dump = (ast_dump_T*) node;
