@@ -68,6 +68,7 @@ C-style syntax
 - [x] Identifier properties
 - [x] Arrays
 - [x] Structs
+- [ ] Character literals
 - [ ] Import of other source files
 
 
@@ -247,7 +248,7 @@ TODO
 ---
 
 
-### properties
+### Properties
 
 TODO
 
