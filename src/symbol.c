@@ -1,4 +1,5 @@
 #include "include/symbol.h"
+#include "include/logger.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -103,6 +104,9 @@ size_t symbol_get_prop_offset(symbol_T* type, char* propname) {
 }
 
 symbol_T* symbol_get_prop_type(symbol_T* type, char* propname) {
+	if (type->type != SYM_VAR_TYPE) {
+		log_error(NULL, 1, "Cannot get prop type from non type symbol: %s.\n", type->name);
+	}
 	symbol_type_T* t = (symbol_type_T*)type;
 
 	for (size_t i = 0; i < t->prop_count; i++) {

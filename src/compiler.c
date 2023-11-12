@@ -606,7 +606,7 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 				append_file(c->file, var_type->operand);
 				append_file(c->file, " [rbp+");
 
-				snprintf(str, 20, "%zu]\n", (var_type->size * (var_sym->index+1))+2);
+				snprintf(str, 20, "%zu]\n", (8 * (var_sym->index+1))+2);
 				append_file(c->file, str);
 			}
 			break;
@@ -765,7 +765,7 @@ void compile_func_decl(compiler_T* c, ast_node_T* node) {
 	}
 }
 
-// arg : (value | bin_op | array_element) ;
+// arg : (value | bin_op | array_element | prop) ;
 void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
 	switch (node->type) {
 		case AST_VALUE:
@@ -778,6 +778,10 @@ void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
 
 		case AST_ARRAY_ELEMENT:
 			compile_array_element(c, node);
+			break;
+
+		case AST_PROP:
+			compile_prop(c, node);
 			break;
 
 		case AST_PROGRAM:
@@ -799,8 +803,9 @@ void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
 		case AST_NO_OP:
 		case AST_ARRAY_EXPR:
 		case AST_ARRAY:
-		case AST_PROP:
 		case AST_LOGICAL_OP:
+		case AST_STRUCT_INIT:
+		case AST_ATTRIBUTE:
 			log_error(node->loc, 1, "Invalid node in function call argument. Found %s\n", ast_get_name(node->type));
 	}
 

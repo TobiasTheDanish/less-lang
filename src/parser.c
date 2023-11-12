@@ -767,7 +767,7 @@ ast_node_T* func_decl(parser_T* parser) {
 	return ast_new_func_decl(ident, params, count, b);
 }
 
-// arg : (value | bin_op | array_element) ;
+// arg : (value | bin_op | array_element | prop) ;
 ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 	token_T* current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[((parser->t_index + 1) %parser->t_count)];
@@ -779,6 +779,14 @@ ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 			symbol_var_T* arr = (symbol_var_T*)symbol_table_get(parser->s_table, val->ident->value);
 			if (strcmp(arr->elem_type->name, param->type->name) != 0) {
 				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", arr->elem_type->name, param->type->name);
+			}
+		} else if (next->type == T_DOT) {
+			node = prop(parser);
+			ast_prop_T* p = (ast_prop_T*) node;
+			symbol_var_T* var_sym = (symbol_var_T*) p->parent_sym;
+			symbol_T* p_type = symbol_get_prop_type(var_sym->type, p->prop->value);
+			if (strcmp(p_type->name, param->type->name) != 0) {
+				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", p_type->name, param->type->name);
 			}
 		} else {
 			node = value(parser);

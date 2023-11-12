@@ -3,9 +3,13 @@ struct User {
 	name: string;
 }
 
+func print(str: string, len: int) {
+	syscall(1, 1, str, len);
+}
+
 func main() {
-	let user = User{ id = 1, name = "Tobias" };
+	let user = User{ id = 1, name = "Tobias\n" };
 
 	dump user.id;
-	dump user.name;
+	print(user.name, 8);
 }
