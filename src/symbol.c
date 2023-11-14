@@ -74,11 +74,18 @@ symbol_T* symbol_new_func(char* name, location_T* loc) {
 	func->params = calloc(1, sizeof(symbol_T*));
 	func->param_count = 0;
 	func->params[0] = (void*) 0;
+	func->ret_type = NULL;
 
 	return (symbol_T*) func;
 }
 
 bool symbol_is_prop(symbol_T* type, char* propname) {
+	if (type == NULL) {
+		log_error(NULL, 1, "Cannot find property from NULL symbol.\n");
+	}
+	if (type->type != SYM_VAR_TYPE) {
+		log_error(NULL, 1, "Cannot check if symbol is prop on non type symbol: %s.\n", type->name);
+	}
 	symbol_type_T* t = (symbol_type_T*)type;
 
 	for (size_t i = 0; i < t->prop_count; i++) {
@@ -91,6 +98,13 @@ bool symbol_is_prop(symbol_T* type, char* propname) {
 }
 
 size_t symbol_get_prop_offset(symbol_T* type, char* propname) {
+	if (type == NULL) {
+		log_error(NULL, 1, "Cannot find property from NULL symbol.\n");
+	}
+
+	if (type->type != SYM_VAR_TYPE) {
+		log_error(NULL, 1, "Cannot get prop offset from non type symbol: %s.\n", type->name);
+	}
 	symbol_type_T* t = (symbol_type_T*)type;
 
 	for (size_t i = 0; i < t->prop_count; i++) {
@@ -103,7 +117,30 @@ size_t symbol_get_prop_offset(symbol_T* type, char* propname) {
 	return -1;
 }
 
+symbol_T* symbol_get_prop(symbol_T* type, char* propname) {
+	if (type == NULL) {
+		log_error(NULL, 1, "Cannot find property from NULL symbol.\n");
+	}
+
+	if (type->type != SYM_VAR_TYPE) {
+		log_error(NULL, 1, "Cannot get prop from non type symbol: %s.\n", type->name);
+	}
+	symbol_type_T* t = (symbol_type_T*)type;
+
+	for (size_t i = 0; i < t->prop_count; i++) {
+		if (strcmp(t->props[i]->name, propname) == 0) {
+			return t->props[i];
+		}
+	}
+
+	return NULL;
+}
+
 symbol_T* symbol_get_prop_type(symbol_T* type, char* propname) {
+	if (type == NULL) {
+		log_error(NULL, 1, "Cannot find property from NULL symbol.\n");
+	}
+
 	if (type->type != SYM_VAR_TYPE) {
 		log_error(NULL, 1, "Cannot get prop type from non type symbol: %s.\n", type->name);
 	}

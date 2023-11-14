@@ -1,3 +1,4 @@
+#include "netinet/in.h"
 #include "include/compiler.h"
 #include "include/ast_nodes.h"
 #include "include/data_constant.h"
@@ -8,13 +9,19 @@
 #include "include/symbol.h"
 #include "include/symbol_table.h"
 #include "include/token.h"
-#include <bits/pthreadtypes.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+size_t min(size_t a, size_t b) {
+	if (a < b) return a;
 
+	return b;
+}
+
+void compile_func_call(compiler_T* c, ast_node_T* node);
+void compile_syscall(compiler_T* c, ast_node_T* node);
 void compile_if(compiler_T* c, ast_node_T* node);
 void compile_expr(compiler_T* c, ast_node_T* node);
 
@@ -38,11 +45,12 @@ void compile_prop(compiler_T* c, ast_node_T* node) {
 
 	symbol_var_T* arr_sym = (symbol_var_T*)prop->parent_sym;
 	if (symbol_is_prop(arr_sym->type, prop->prop->value)) {
+		symbol_type_T* prop_type = (symbol_type_T*)symbol_get_prop_type(arr_sym->type, prop->prop->value);
 		size_t offset = symbol_get_prop_offset(arr_sym->type, prop->prop->value);
 
 		append_file(c->file, "    xor rax, rax\n");
 		char str[50];
-		snprintf(str, 50, "    mov rax, QWORD [rbp+%zu]\n", (8 * (arr_sym->index+1))+2);
+		snprintf(str, 50, "    mov rax, QWORD [rbp+%zu]\n", (min(prop_type->size, 8) * (arr_sym->index+1))+2);
 		append_file(c->file, str);
 		snprintf(str, 50, "    add rax, %zu\n", offset);
 		append_file(c->file, str);
@@ -139,7 +147,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 
 						char str[20];
 							if (!var_sym->is_const) {
-								snprintf(str, 20, " [rbp+%zu]\n", (var_type->size * (var_sym->index+1))+2);
+								snprintf(str, 20, " [rbp+%zu]\n", (min(var_type->size, 8) * (var_sym->index+1))+2);
 							} else if (var_sym->is_const) {
 								size_t index = data_table_get_index(c->data_table, var_sym->const_val);
 								snprintf(str, 20, " [const%zu]\n", index);
@@ -172,7 +180,7 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 
 							char str[20];
 							if (!var_sym->is_const) {
-								snprintf(str, 20, " rbp+%zu\n", (var_type->size * (var_sym->index+1))+2);
+								snprintf(str, 20, " rbp+%zu\n", (min(var_type->size, 8) * (var_sym->index+1))+2);
 							} else if (var_sym->is_const) {
 								size_t index = data_table_get_index(c->data_table, var_sym->const_val);
 								snprintf(str, 20, " const%zu\n", index);
@@ -277,7 +285,7 @@ void compile_array_element(compiler_T* c, ast_node_T* node) {
 	append_file(c->file,  "    xor rax, rax\n");
 	append_file(c->file,  "    xor rbx, rbx\n");
 	char str[50];
-	snprintf(str, 50, "    mov rax, %s [rbp+%zu]\n",type_sym->operand, (8 * (arr_sym->index+1))+2);
+	snprintf(str, 50, "    mov rax, %s [rbp+%zu]\n",type_sym->operand, (min(type_sym->size, 8) * (arr_sym->index+1))+2);
 	append_file(c->file, str);
 	append_file(c->file,  "    add rax, 8\n");
 	append_file(c->file,  "    pop rbx\n");
@@ -571,30 +579,66 @@ void compile_struct_init(compiler_T* c, ast_node_T* node) {
 void compile_assign(compiler_T* c, ast_node_T* node) {
 	ast_assign_T* a = (ast_assign_T*) node;
 	symbol_T* sym = symbol_table_get(c->s_table, a->ident->value);
-	if (sym == NULL) {
-		log_error(node->loc, 1, "Uninitialized symbol '%s' used in compile_assign\n", token_get_name(a->ident->type));
+	if (sym == NULL && a->lhs->type != AST_PROP) {
+		log_error(node->loc, 1, "Uninitialized symbol '%s' used in compile_assign\n", a->ident->value);
 	}
+	// TODO: sym is null when compiling, add function to get prop symbol out of parent
+	if (sym == NULL) {
+		ast_prop_T* p = (ast_prop_T*)a->lhs;
+		symbol_var_T* parent = (symbol_var_T*)p->parent_sym;
+		sym = symbol_get_prop(parent->type, p->prop->value);
+	}
+
+	log_debug(c->debug, "Compile rhs\n");
+	if (a->value->type == AST_VALUE) {
+		compile_value(c, a->value);
+	} else if (a->value->type == AST_BIN_OP) {
+		compile_bin_op(c, a->value);
+	} else if (a->value->type == AST_PROP) {
+		compile_prop(c, a->value);
+	} else if (a->value->type == AST_ARRAY) {
+		compile_array(c, a->value);
+	} else if (a->value->type == AST_STRUCT_INIT) {
+		compile_struct_init(c, a->value);
+	} else if (a->value->type == AST_ARRAY_ELEMENT) {
+		compile_array_element(c, a->value);
+		append_file(c->file,  "    pop rax\n");
+		append_file(c->file,  "    push QWORD [rax]\n");
+	} else if (a->value->type == AST_SYSCALL) {
+		compile_syscall(c, a->value);
+		append_file(c->file,  "    push rax\n");
+	} else if (a->value->type == AST_FUNC_CALL) {
+		compile_func_call(c, a->value);
+		append_file(c->file,  "    push rax\n");
+	} else {
+		log_error(a->value->loc, 1, "Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
+	}
+
+	log_debug(c->debug, "Compile lhs\n");
 	switch (sym->type) {
-		case SYM_VAR:
-			if (a->value->type == AST_VALUE) {
-				compile_value(c, a->value);
-			} else if (a->value->type == AST_BIN_OP) {
-				compile_bin_op(c, a->value);
-			} else if (a->value->type == AST_PROP) {
-				compile_prop(c, a->value);
-			} else if (a->value->type == AST_ARRAY) {
-				compile_array(c, a->value);
-			} else if (a->value->type == AST_STRUCT_INIT) {
-				compile_struct_init(c, a->value);
-			} else if (a->value->type == AST_ARRAY_ELEMENT) {
-				compile_array_element(c, a->value);
-				append_file(c->file,  "    pop rax\n");
-				append_file(c->file,  "    push QWORD [rax]\n");
-			} else {
-				log_error(a->value->loc, 1, "Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
+		case SYM_PROP:
+			if (a->lhs->type == AST_PROP) {
+				ast_prop_T* prop = (ast_prop_T*) a->lhs;
+
+				symbol_var_T* parent = (symbol_var_T*)prop->parent_sym;
+				if (symbol_is_prop(parent->type, prop->prop->value)) {
+					symbol_type_T* prop_type = (symbol_type_T*)symbol_get_prop_type(parent->type, prop->prop->value);
+					size_t offset = symbol_get_prop_offset(parent->type, prop->prop->value);
+
+					append_file(c->file, "    xor rax, rax\n");
+					char str[50];
+					snprintf(str, 50, "    mov rax, QWORD [rbp+%zu]\n", (min(prop_type->size, 8) * (parent->index+1))+2);
+					append_file(c->file, str);
+					snprintf(str, 50, "    add rax, %zu\n", offset);
+					append_file(c->file, str);
+					append_file(c->file, "    pop QWORD [rax]\n");
+				} else {
+					log_error(node->loc, 1, "Invalid property '%s' for type '%s'\n", prop->prop->value, prop->parent_sym->name);
+				}
 			}
+			break;
 
-
+		case SYM_VAR:
 			if (a->lhs->type == AST_ARRAY_ELEMENT) {
 				compile_array_element(c, a->lhs);
 				append_file(c->file, "    pop rax\n");
@@ -608,13 +652,13 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 				append_file(c->file, var_type->operand);
 				append_file(c->file, " [rbp+");
 
-				snprintf(str, 20, "%zu]\n", (8 * (var_sym->index+1))+2);
+				snprintf(str, 20, "%zu]\n", (min(var_type->size, 8) * (var_sym->index+1))+2);
 				append_file(c->file, str);
 			}
 			break;
 
 		default:
-			log_error(node->loc, 1, "Unexpected symbol type in assignment. Found %s, expected %s.\n", symbol_get_type_string(sym->type), symbol_get_type_string(SYM_VAR));
+			log_error(node->loc, 1, "Unexpected symbol type in assignment. Found %s, expected %s or %s.\n", symbol_get_type_string(sym->type), symbol_get_type_string(SYM_VAR), symbol_get_type_string(SYM_PROP));
 	}
 
 }
@@ -647,6 +691,7 @@ void compile_sys_arg(compiler_T* c, ast_node_T* node) {
 
 // syscall : LPAREN (sys_arg (COMMA sys_arg)*)? RPAREN;
 void compile_syscall(compiler_T* c, ast_node_T* node) {
+	log_debug(c->debug, "Compile syscall\n");
 	ast_syscall_T* syscall = (ast_syscall_T*) node;
 
 	if (syscall->count < 1) {
@@ -706,7 +751,7 @@ void compile_func_param(compiler_T* c, token_T* token, size_t param_index) {
 	symbol_var_T* param_sym = (symbol_var_T*) sym;
 	symbol_type_T* param_type = (symbol_type_T*) param_sym->type;
 	char str[50];
-	snprintf(str, 49, "    mov %s [rbp+%zu]", param_type->operand, (param_type->size * (param_sym->index+1))+2);
+	snprintf(str, 49, "    mov %s [rbp+%zu]", param_type->operand, (min(param_type->size, 8) * (param_sym->index+1))+2);
 	append_file(c->file, str);
 	switch (param_index) {
 		case 0:

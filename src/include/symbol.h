@@ -47,6 +47,7 @@ typedef struct SYMBOL_FUNC_STRUCT {
 	symbol_T base;
 	symbol_T** params;
 	size_t param_count;
+	symbol_T* ret_type;
 } symbol_func_T;
 
 symbol_T* symbol_new(char* name, symbol_E type, location_T* loc);
@@ -62,6 +63,8 @@ symbol_T* symbol_new_func(char* name, location_T* loc);
 bool symbol_is_prop(symbol_T* type, char* propname);
 
 size_t symbol_get_prop_offset(symbol_T* type, char* propname);
+
+symbol_T* symbol_get_prop(symbol_T* type, char* propname);
 
 symbol_T* symbol_get_prop_type(symbol_T* type, char* propname);
 

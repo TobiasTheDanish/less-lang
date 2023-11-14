@@ -13,6 +13,8 @@
 
 #define SYMBOL_SIZE 8
 
+ast_node_T* func_call(parser_T* parser);
+ast_node_T* syscall(parser_T* parser);
 ast_node_T* array_expr(parser_T* parser);
 ast_node_T* expr(parser_T* parser);
 ast_node_T* if_block(parser_T* parser);
@@ -499,9 +501,10 @@ ast_node_T* struct_init(parser_T* parser) {
 }
 
 
-// assign : (ID | array_element) ASSIGN (value | bin_op | array | array_element | prop | struct_init) ;
+// assign : (ID | array_element) ASSIGN (syscall | func_call | value | bin_op | array | array_element | prop | struct_init) ;
 ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 	token_T* ident;
+	symbol_T* parent_sym = NULL;
 	switch (lhs->type) {
 		case AST_ARRAY_ELEMENT:
 			{
@@ -516,82 +519,128 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 				ident = e->t;
 			}
 			break;
+
+		case AST_PROP:
+			{
+				ast_prop_T* e = (ast_prop_T*) lhs;
+				ident = e->prop;
+				symbol_var_T* parent = (symbol_var_T*)e->parent_sym;
+				parent_sym = parent->type;
+			}
+			break;
 				
 		default:
 			log_error(lhs->loc, 1, "Invalid left hand side of assignment. Cannot assign to %s.\n", ast_get_name(lhs->type));
 	}
 
+	symbol_var_T* symbol;
 	if (symbol_table_contains(parser->s_table, ident->value)) {
-		symbol_var_T* symbol = (symbol_var_T*)symbol_table_get(parser->s_table, ident->value);
+		symbol = (symbol_var_T*)symbol_table_get(parser->s_table, ident->value);
 		if (symbol->is_const) {
 			log_error(ident->loc, -1, "Cannot reassign constant identifier '%s'\n", ident->value);
 			location_T* loc = symbol->base.loc;
-			log_debug(parser->debug, "Constant identifier '%s' first defined here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
+			log_info("Constant identifier '%s' first defined here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
 			exit(1);
 		} else if (!symbol->is_mut && symbol->is_assigned && lhs->type != AST_ARRAY_ELEMENT) {
 			log_error(ident->loc, -1, "Cannot reassign immutable variable '%s'\n", ident->value);
 			location_T* loc = symbol->base.loc;
-			log_debug(parser->debug, "Consider adding 'mut' to declaration of '%s' here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
+			log_info("Consider adding 'mut' to declaration of '%s' here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
 			exit(1);
 		}
-		consume(parser);
-
-		symbol_T* s = symbol_table_get(parser->s_table, parser->tokens[parser->t_index]->value);
-		ast_node_T* v;
-		if (s == NULL){
-			v = value(parser);
-			if (!symbol->is_assigned) {
-				ast_value_T* val = (ast_value_T*) v;
-				symbol->type = val->type_sym;
-			}
-		} else if (s->type == SYM_VAR_TYPE && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LCURLY) {
-			v = struct_init(parser);
-			if (!symbol->is_assigned) {
-				ast_struct_init_T* structure = (ast_struct_init_T*) v;
-				symbol->type = symbol_table_get(parser->s_table, structure->struct_name);
-			}
-		} else if (s->type == SYM_VAR_TYPE && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
-			v = array(parser);
-			if (!symbol->is_assigned) {
-				ast_array_T* arr = (ast_array_T*) v;
-				symbol->type = arr->type;
-				symbol->elem_type = arr->elem_type;
-			}
-		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_DOT) {
-			v = prop(parser);
-			if (!symbol->is_assigned) {
-				ast_prop_T* p = (ast_prop_T*) v;
-				symbol_var_T* var = (symbol_var_T*)s;
-				symbol->type = symbol_get_prop_type(var->type, p->prop->value);
-			}
-		} else if (s->type == SYM_VAR && parser->tokens[(parser->t_index + 1) %parser->t_count]->type == T_LSQUARE) {
-			v = array_element(parser);
-			if (!symbol->is_assigned) {
-				symbol_var_T* var = (symbol_var_T*)s;
-				symbol->type = var->elem_type;
-			}
-		} else {
-			v = value(parser);
-			if (!symbol->is_assigned) {
-				ast_value_T* val = (ast_value_T*) v;
-				symbol->type = val->type_sym;
-			}
+	} else if (parent_sym != NULL && ident != NULL && symbol_is_prop(parent_sym, ident->value)) {
+		symbol = (symbol_var_T*)symbol_table_get(parser->s_table, parent_sym->name);
+		if (symbol->is_const) {
+			log_error(ident->loc, -1, "Cannot assign to property of constant identifier '%s'\n", ident->value);
+			location_T* loc = symbol->base.loc;
+			log_info("Constant identifier '%s' defined here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
+			exit(1);
+		} else if (!symbol->is_mut && symbol->is_assigned && lhs->type != AST_ARRAY_ELEMENT) {
+			log_error(ident->loc, -1, "Cannot assign to property of immutable variable '%s'\n", ident->value);
+			location_T* loc = symbol->base.loc;
+			log_info("Consider adding 'mut' to declaration of '%s' here: '%s:%d:%d'\n", ident->value, loc->filePath, loc->row, loc->col);
+			exit(1);
 		}
-
-		if (token_is_op(parser->tokens[parser->t_index])) {
-			v = bin_op(parser, v);
-			if (!symbol->is_assigned) {
-				ast_bin_op_T* val = (ast_bin_op_T*) v;
-				symbol->type = val->type_sym;
-			}
-		}
-
-		symbol->is_assigned = 1;
-		return ast_new_assign(ident, lhs, v);
+		symbol = NULL;
 	} else {
 		log_error(ident->loc, 1, "Use of '%s', before declaration.\n", ident->value);
 		return NULL; //unreachable
 	}
+	consume(parser);
+
+	token_T* current = parser->tokens[parser->t_index];
+	token_T* next = parser->tokens[(parser->t_index + 1) %parser->t_count];
+	symbol_T* s = symbol_table_get(parser->s_table, current->value);
+	ast_node_T* v;
+	if (current->type == T_SYSCALL) {
+		v = syscall(parser);
+		if (symbol && !symbol->is_assigned) {
+			symbol->type = symbol_table_get(parser->s_table, "int");
+		}
+	} else if (next->type == T_LPAREN) {
+		v = func_call(parser);
+		ast_func_call_T* f = (ast_func_call_T*)v;
+		symbol_T* sym = symbol_table_get(parser->s_table, f->ident->value);
+		if (sym == NULL || sym->type != SYM_FUNC) {
+			log_error(f->ident->loc, 1, "Symbol '%s' cannot be called as function.\n", f->ident->value);
+		}
+		symbol_func_T* f_sym = (symbol_func_T*) sym;
+		if (!f_sym->ret_type) {
+			log_error(f->ident->loc, 1, "Cannot assign with function '%s' that returns void.\n", f->ident->value);
+		}
+		if (symbol && !symbol->is_assigned) {
+			symbol->type = f_sym->ret_type;
+		}
+	} else if (s == NULL){
+		v = value(parser);
+		if (symbol && !symbol->is_assigned) {
+			ast_value_T* val = (ast_value_T*) v;
+			symbol->type = val->type_sym;
+		}
+	} else if (s->type == SYM_VAR_TYPE && next->type == T_LCURLY) {
+		v = struct_init(parser);
+		if (symbol && !symbol->is_assigned) {
+			ast_struct_init_T* structure = (ast_struct_init_T*) v;
+			symbol->type = symbol_table_get(parser->s_table, structure->struct_name);
+		}
+	} else if (s->type == SYM_VAR_TYPE && next->type == T_LSQUARE) {
+		v = array(parser);
+		if (symbol && !symbol->is_assigned) {
+			ast_array_T* arr = (ast_array_T*) v;
+			symbol->type = arr->type;
+			symbol->elem_type = arr->elem_type;
+		}
+	} else if (s->type == SYM_VAR && next->type == T_DOT) {
+		v = prop(parser);
+		if (symbol && !symbol->is_assigned) {
+			ast_prop_T* p = (ast_prop_T*) v;
+			symbol_var_T* var = (symbol_var_T*)s;
+			symbol->type = symbol_get_prop_type(var->type, p->prop->value);
+		}
+	} else if (s->type == SYM_VAR && next->type == T_LSQUARE) {
+		v = array_element(parser);
+		if (symbol && !symbol->is_assigned) {
+			symbol_var_T* var = (symbol_var_T*)s;
+			symbol->type = var->elem_type;
+		}
+	} else {
+		v = value(parser);
+		if (symbol && !symbol->is_assigned) {
+			ast_value_T* val = (ast_value_T*) v;
+			symbol->type = val->type_sym;
+		}
+	}
+
+	if (token_is_op(parser->tokens[parser->t_index])) {
+		v = bin_op(parser, v);
+		if (symbol && !symbol->is_assigned) {
+			ast_bin_op_T* val = (ast_bin_op_T*) v;
+			symbol->type = val->type_sym;
+		}
+	}
+
+	if (symbol) symbol->is_assigned = 1;
+
+	return ast_new_assign(ident, lhs, v);
 
 }
 
@@ -729,7 +778,7 @@ token_T* func_param(parser_T* parser, symbol_func_T* func) {
 	return param;
 }
 
-// func_decl : FUNC ID LPAREN (func_param (COMMA func_param)*)? RPAREN block ;
+// func_decl : FUNC ID LPAREN (func_param (COMMA func_param)*)? RPAREN (COLON ID)? block ;
 ast_node_T* func_decl(parser_T* parser) {
 	consume(parser);
 	token_T* ident = parser->tokens[parser->t_index];
@@ -754,6 +803,22 @@ ast_node_T* func_decl(parser_T* parser) {
 		}
 	}
 	consume(parser);
+
+	if (parser->tokens[parser->t_index]->type == T_COLON) {
+		consume(parser);
+		token_T* ret_type = parser->tokens[parser->t_index];
+		symbol_T* return_sym = symbol_table_get(parser->s_table, ret_type->value);
+
+		if (return_sym == NULL || return_sym->type != SYM_VAR_TYPE) {
+			log_error(ret_type->loc, 1, "'%s' is not a valid return type.\n", ret_type->value);
+		}
+
+		symbol_func_T* f = (symbol_func_T*) func_sym;
+		f->ret_type = return_sym;
+	} else {
+		symbol_func_T* f = (symbol_func_T*) func_sym;
+		f->ret_type = NULL;
+	}
 
 	ast_node_T* b = block(parser);
 
@@ -980,6 +1045,8 @@ ast_node_T* expr(parser_T* parser) {
 						break;
 					} else if (next->type == T_LSQUARE) {
 						lhs = array_element(parser);
+					} else if (next->type == T_DOT) {
+						lhs = prop(parser);
 					} else {
 						lhs = value(parser);
 					}
