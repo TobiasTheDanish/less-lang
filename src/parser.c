@@ -50,6 +50,9 @@ void consume(parser_T* parser) {
 ast_node_T* prop(parser_T* parser) {
 	token_T* parent = parser->tokens[parser->t_index];
 	symbol_T* parent_sym = symbol_table_get(parser->s_table, parent->value);
+	if (parent_sym->type != SYM_VAR) {
+		log_error(parent->loc, 1, "Cannot get prop of non variable symbol %s\n", parent->value);
+	}
 	symbol_var_T* v = (symbol_var_T*) parent_sym;
 
 	consume(parser);
@@ -92,9 +95,16 @@ ast_node_T* value(parser_T* parser) {
 				log_error(token->loc, 1, "Use of '%s', before declaration.\n", token->value);
 			}
 		case T_INTEGER:
-			//printf("<%s, %s>\n", token->value, "int");
-			res = ast_new_value(token, symbol_table_get(parser->s_table, "int"));
-			consume(parser);
+			{
+				//printf("<%s, %s>\n", token->value, "int");
+				char* type;
+				if (atoi(token->value) < 255) type = "i8";
+				else if (atoi(token->value) < 65535) type = "i16";
+				else type = "i32";
+
+				res = ast_new_value(token, symbol_table_get(parser->s_table, type));
+				consume(parser);
+			}
 			break;
 		case T_STRING:
 			data_table_put(parser->data_table, token, "string");
@@ -162,28 +172,40 @@ ast_node_T* bin_op(parser_T* parser, ast_node_T* lhs) {
 		rhs = array_element(parser);
 		ast_array_element_T* v = (ast_array_element_T*) rhs;
 		symbol_var_T* elem_sym = (symbol_var_T*) symbol_table_get(parser->s_table, v->ident->value);
-		if (lhs_type != NULL && elem_sym->elem_type != NULL && strcmp(lhs_type->base.name, elem_sym->elem_type->name) == 0) {
+		// && strcmp(lhs_type->base.name, elem_sym->elem_type->name) == 0
+		if (lhs_type != NULL && elem_sym->elem_type != NULL) {
 			type = lhs_type;
-		} else {
+		} 
+		/*
+		else {
 			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, elem_sym->elem_type->name);
 		}
+		*/
 	} else if ((current->type == T_INTEGER || current->type == T_IDENT) && next->type == T_DOT) {
 		rhs = prop(parser);
 		ast_prop_T* v = (ast_prop_T*) rhs;
 		symbol_var_T* prop_sym = (symbol_var_T*) symbol_table_get(parser->s_table, v->parent_sym->name);
-		if (lhs_type != NULL && prop_sym->type != NULL && strcmp(lhs_type->base.name, prop_sym->elem_type->name) == 0) {
+		// && strcmp(lhs_type->base.name, prop_sym->elem_type->name) == 0
+		if (lhs_type != NULL && prop_sym->type != NULL) {
 			type = lhs_type;
-		} else {
+		} 
+		/*
+		else {
 			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, prop_sym->elem_type->name);
 		}
+		*/
 	} else if (current->type == T_INTEGER || current->type == T_IDENT) {
 		rhs = value(parser);
 		ast_value_T* v = (ast_value_T*) rhs;
-		if (lhs_type != NULL && v->type_sym != NULL && strcmp(lhs_type->base.name, v->type_sym->name) == 0) {
+		// && strcmp(lhs_type->base.name, v->type_sym->name) == 0
+		if (lhs_type != NULL && v->type_sym != NULL) {
 			type = lhs_type;
-		} else {
+		} 
+		/*
+		else {
 			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, v->type_sym->name);
 		}
+		*/
 	} else {
 		log_error(current->loc, 1, "Invalid token type for rhs in bin_op. Found: %s, expected an identifier, value or bin_op\n", token_get_name(current->type));
 	}
@@ -192,11 +214,15 @@ ast_node_T* bin_op(parser_T* parser, ast_node_T* lhs) {
 	if (token_is_op(current)) {
 		rhs = bin_op(parser, rhs);
 		ast_bin_op_T* b = (ast_bin_op_T*) rhs;
-		if (lhs_type != NULL && b->type_sym != NULL && strcmp(lhs_type->base.name, b->type_sym->name) == 0) {
+		// && strcmp(lhs_type->base.name, b->type_sym->name) == 0
+		if (lhs_type != NULL && b->type_sym != NULL) {
 			type = lhs_type;
-		} else {
+		} 
+		/*
+		else {
 			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, b->type_sym->name);
 		}
+		*/
 	}
 
 	return ast_new_bin_op((ast_node_T*)lhs, operation, rhs, (symbol_T*)type);
@@ -210,7 +236,6 @@ ast_node_T* array_element(parser_T* parser) {
 	consume(parser);
 	consume(parser);
 
-	token_T* index = parser->tokens[parser->t_index];
 	ast_node_T* offset;
 
 	token_T* next = parser->tokens[(parser->t_index+1) % parser->t_count];
@@ -462,9 +487,14 @@ ast_node_T* attribute(parser_T* parser, symbol_type_T* type) {
 		val_type = v->type_sym;
 	}
 
+	if (val_type == NULL) {
+		log_error(ident->loc, 1, "Value in assignment didnt have a type. Expected %s.\n", prop_type->name);
+	}
+	/*
 	if (val_type == NULL || strcmp(val_type->name, prop_type->name) != 0) {
 		log_error(ident->loc, 1, "Mismatched types in struct initialization. Found %s and expected %s.\n", val_type->name, prop_type->name);
 	}
+	*/
 
 	return ast_new_attribute(ident, val);
 }
@@ -574,7 +604,7 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 	if (current->type == T_SYSCALL) {
 		v = syscall(parser);
 		if (symbol && !symbol->is_assigned) {
-			symbol->type = symbol_table_get(parser->s_table, "int");
+			symbol->type = symbol_table_get(parser->s_table, "i32");
 		}
 	} else if (next->type == T_LPAREN) {
 		v = func_call(parser);
@@ -840,34 +870,42 @@ ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 		ast_node_T* node;
 		if (next->type == T_LSQUARE) {
 			node = array_element(parser);
+			/*
 			ast_array_element_T* val = (ast_array_element_T*)node;
 			symbol_var_T* arr = (symbol_var_T*)symbol_table_get(parser->s_table, val->ident->value);
 			if (strcmp(arr->elem_type->name, param->type->name) != 0) {
 				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", arr->elem_type->name, param->type->name);
 			}
+			*/
 		} else if (next->type == T_DOT) {
 			node = prop(parser);
+			/*
 			ast_prop_T* p = (ast_prop_T*) node;
 			symbol_var_T* var_sym = (symbol_var_T*) p->parent_sym;
 			symbol_T* p_type = symbol_get_prop_type(var_sym->type, p->prop->value);
 			if (strcmp(p_type->name, param->type->name) != 0) {
 				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", p_type->name, param->type->name);
 			}
+			*/
 		} else {
 			node = value(parser);
+			/*
 			ast_value_T* val = (ast_value_T*)node;
 			if (strcmp(val->type_sym->name, param->type->name) != 0) {
 				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", val->type_sym->name, param->type->name);
 			}
+			*/
 		}
 
 		next = parser->tokens[parser->t_index];
 		if (token_is_op(next)) {
-			ast_node_T* n = bin_op(parser, n);
+			node = bin_op(parser, node);
+			/*
 			ast_bin_op_T* b = (ast_bin_op_T*)n;
 			if (strcmp(b->type_sym->name, param->type->name) != 0) {
 				log_error(current->loc, 1, "Mismatched argument types in function call, found: %s, expected: %s.\n", b->type_sym->name, param->type->name);
 			}
+			*/
 
 		} 
 
@@ -951,13 +989,14 @@ ast_node_T* array_expr(parser_T* parser) {
 symbol_T* decl_attribute(parser_T* parser, size_t offset) {
 
 	token_T* ident = parser->tokens[parser->t_index];
+	if (ident->value == NULL) log_error(NULL, 1, "Error parsing struct decl attribute\n");
 	consume(parser);
 	consume(parser);
 	token_T* type = parser->tokens[parser->t_index];
 	symbol_T* type_sym = symbol_table_get(parser->s_table, type->value);
 
-	if (type_sym == NULL) {
-		log_error(type->loc, 1, "Type '%s' is not a known type.");
+	if (type_sym == NULL || type_sym->type != SYM_VAR_TYPE) {
+		log_error(type->loc, 1, "Type '%s' is not a known type.\n", type->value);
 	}
 	consume(parser);
 	consume(parser);

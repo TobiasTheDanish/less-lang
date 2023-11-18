@@ -2,40 +2,49 @@ const AF_INET = 2;
 const SOCK_STREAM = 1;
 const INADDR_ANY = 0;
 
+struct ClientSize {
+	size: i32;
+}
+
 struct ClientSocket {
-	sockfd: int;
-	addrSize: int;
+	sockfd: i32;
+	addrSize: ClientSize;
 }
 
 struct Socket {
-	sockfd: int;
-	domain: int;
-	type: int;
-	protocol: int;
-	backlog: int;
+	sockfd: i32;
+	domain: i32;
+	type: i32;
+	protocol: i32;
+	backlog: i32;
 }
 
 struct SocketAddressIn {
-	family: int;
-	addr: int;
-	port: int;
+	family: i16;
+	port: i16;
+	addr: i32;
 }
 
-func print(str: string, len: int) {
+func print(str: string, len: i8) {
 	syscall(1, 1, str, len);
 }
 
-func closeSocket(sockfd: int) {
+func closeSocket(sockfd: i32) {
 	syscall(3, sockfd);
 }
 
-func write(sockfd: int, str: string, len: int) {
-	print("Write\n", 6);
-	syscall(1, sockfd, str, len);
+func send(sockfd: i32, str: string, len: i32, flags: i32) {
+	let bytesSend = syscall(44, sockfd, str, len, flags, 0, 0);
+
+	if bytesSend < 0 {
+		print("Send failed\n", 12);
+		syscall(60, 1);
+	}
+
+	print("Message sent to client\n", 23);
 }
 
-func read(sockfd: int, buf: array, bufSize: int) {
-	print("Read\n", 5);
+func read(sockfd: i32, buf: array, bufSize: i32) {
 	let err = syscall(0, sockfd, buf, bufSize-1);
 
 	if err < 0 {
@@ -46,18 +55,21 @@ func read(sockfd: int, buf: array, bufSize: int) {
 	syscall(1, 1, buf, buf.len);
 }
 
-func accept(client: ClientSocket, sockfd: int, addr: SocketAddressIn) {
+func accept(client: ClientSocket, sock: i32, addr: SocketAddressIn) {
 	print("Accepting:\n", 11);
-	client.sockfd = syscall(43, sockfd, addr, client.addrSize);
-	if client.sockfd < 0 {
-		print("Connecting failed\n", 18);
+	let res = syscall(43, sock, addr, client.addrSize);
+
+	if res < 0 {
+		print("Accepting failed\n", 18);
+		closeSocket(sock);
 		syscall(60, 1);
 	}
 
+	client.sockfd = res;
 	print("Client connected!\n", 18);
 }
 
-func listen(sockfd: int, backlog: int) {
+func listen(sockfd: i32, backlog: i32) {
 	print("Listen\n", 7);
 	let err = syscall(50, sockfd, backlog);
 
@@ -67,7 +79,7 @@ func listen(sockfd: int, backlog: int) {
 	}
 }
 
-func bind(sockfd: int, addr: SocketAddressIn) {
+func bind(sockfd: i32, addr: SocketAddressIn) {
 	print("Bind\n", 5);
 	let err = syscall(49, sockfd, addr, 16);
 
@@ -94,18 +106,20 @@ func main() {
 
 	openSocket(socket);
 
-	let address = SocketAddressIn { family: AF_INET, addr: INADDR_ANY, port: 36895 };
+	let address = SocketAddressIn { family: AF_INET, port: 36895, addr: INADDR_ANY };
 	bind(socket.sockfd, address);
 
 	listen(socket.sockfd, socket.backlog);
 
-	let client = ClientSocket { sockfd: 0, addrSize: 16 };
-	accept(client, socket.sockfd, address);
+	let clientAddrSize = ClientSize { size: 16 };
+	let client = ClientSocket { sockfd: 0, addrSize: clientAddrSize };
+	let clientAddress = SocketAddressIn { family: 2, port: 36895, addr: 0 };
+	accept(client, socket.sockfd, clientAddress);
 
-	let buf = int[100];
+	let buf = i8[1024];
 	read(client.sockfd, buf, buf.len);
 
-	write(client.sockfd, "Connection accepted.\n", 22);
+	send(client.sockfd, "SERVER: Connection accepted.\n", 31, 0);
 	
 	closeSocket(client.sockfd);
 

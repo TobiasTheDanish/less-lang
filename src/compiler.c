@@ -9,18 +9,59 @@
 #include "include/symbol.h"
 #include "include/symbol_table.h"
 #include "include/token.h"
-#include <math.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MAX_REGS 8
+char* regs_64bit[MAX_REGS] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9", "rax", "r10" };
+char* all_regs[MAX_REGS*4] = { 
+	"dil", "sil", "dl", "cl", "r8b", "r9b", "al", "r10b",
+	"di", "si", "dx", "cx", "r8w", "r9w", "ax", "r10w",
+	"edi", "esi", "edx", "ecx", "r8d", "r9d", "eax", "r10d",
+	"rdi", "rsi", "rdx", "rcx", "r8", "r9", "rax", "r10"
+};
+
 size_t min(size_t a, size_t b) {
 	if (a < b) return a;
 
 	return b;
 }
 
-void compile_func_call(compiler_T* c, ast_node_T* node);
+void match_regs(char* reg1, char* reg2, char* buf1, char* buf2) {
+	size_t reg1_lvl;
+	size_t reg1_index;
+	size_t reg2_lvl;
+	size_t reg2_index;
+
+	for (size_t i = 0; i < MAX_REGS*4; i++) {
+		if (strcmp(all_regs[i], reg1) == 0) {
+			reg1_lvl = i/MAX_REGS;
+			reg1_index = i%MAX_REGS;
+			break;
+		}
+	}
+	for (size_t i = 0; i < MAX_REGS*4; i++) {
+		if (strcmp(all_regs[i], reg2) == 0) {
+			reg2_lvl = i/MAX_REGS;
+			reg2_index = i%MAX_REGS;
+			break;
+		}
+	}
+
+	if (reg1_lvl == reg2_lvl) {
+		return;
+	} else if (reg1_lvl < reg2_lvl) {
+		strncpy(buf1, all_regs[reg2_lvl * MAX_REGS + reg1_index], 5);
+		strncpy(buf2, reg2, 4);
+	} else if (reg1_lvl > reg2_lvl) {
+		strncpy(buf2, all_regs[reg1_lvl * MAX_REGS + reg2_index], 5);
+		strncpy(buf1, reg1, 4);
+	}
+}
+
+char* compile_func_call(compiler_T* c, ast_node_T* node);
 void compile_syscall(compiler_T* c, ast_node_T* node);
 void compile_if(compiler_T* c, ast_node_T* node);
 void compile_expr(compiler_T* c, ast_node_T* node);
@@ -39,56 +80,65 @@ compiler_T* compiler_new(ast_node_T* program, symbol_table_T* s_table, data_tabl
 }
 
 // prop : ID DOT ID ; 
-void compile_prop(compiler_T* c, ast_node_T* node) {
+char* compile_prop(compiler_T* c, ast_node_T* node, size_t reg_no) {
 	log_debug(c->debug, "compile prop\n");
 	ast_prop_T* prop = (ast_prop_T*) node;
 
 	symbol_var_T* arr_sym = (symbol_var_T*)prop->parent_sym;
 	if (symbol_is_prop(arr_sym->type, prop->prop->value)) {
 		symbol_type_T* prop_type = (symbol_type_T*)symbol_get_prop_type(arr_sym->type, prop->prop->value);
+		char* reg = prop_type->regs[reg_no];
+		char* reg2 = prop_type->regs[MAX_REGS-1];
 		size_t offset = symbol_get_prop_offset(arr_sym->type, prop->prop->value);
 
-		append_file(c->file, "    xor rax, rax\n");
+		append_file(c->file, "    ;-- mov prop --\n");
 		char str[50];
-		snprintf(str, 50, "    mov rax, QWORD [rbp+%zu]\n", (min(prop_type->size, 8) * (arr_sym->index+1))+2);
+		snprintf(str, 50, "    xor %s, %s\n", reg, reg);
 		append_file(c->file, str);
-		snprintf(str, 50, "    add rax, %zu\n", offset);
+		snprintf(str, 50, "    xor %s, %s\n", reg2, reg2);
 		append_file(c->file, str);
-		append_file(c->file, "    push QWORD [rax]\n");
+		snprintf(str, 50, "    mov %s, %s [rbp+%zu]\n", reg2, prop_type->operand, (8 * (arr_sym->index+1))+2);
+		append_file(c->file, str);
+		snprintf(str, 50, "    add %s, %zu\n", reg2, offset);
+		append_file(c->file, str);
+		snprintf(str, 50, "    mov %s, %s [%s]\n",reg, prop_type->operand, reg2);
+		append_file(c->file, str);
+
+		return reg;
 	} else {
 		log_error(node->loc, 1, "Invalid property '%s' for type '%s'\n", prop->prop->value, prop->parent_sym->name);
 	}
+
+	return NULL;
 }
 
-void compile_op(compiler_T* c, ast_node_T* node) {
+char* compile_op(compiler_T* c, ast_node_T* node, char* reg1, char* reg2) {
+	char buf1[5] = {0};
+	char buf2[5] = {0};
+	match_regs(reg1, reg2, buf1, buf2);
 	log_debug(c->debug, "compile op\n");
 	ast_op_T* op = (ast_op_T*) node;
-	if (c->stack_pointer < 2) {
-		log_error(node->loc, 1, "Stack pointer to small for binary operation.\n");
-	}
 
+	char str[50];
+	char* res;
 	switch (op->t->type) {
         case T_PLUS:
 			append_file(c->file, "    ; -- plus --\n");
-			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    add rax, [rsp]\n");
-			append_file(c->file, "    add rsp, 8\n");
-			append_file(c->file, "    push rax\n");
-
+			snprintf(str, 50, "    add %s, %s\n", buf1, buf2);
+			append_file(c->file, str);
+			res = buf1;
 			break;
         case T_MINUS:
 			append_file(c->file, "    ; -- minus --\n");
-			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    sub rax, [rsp]\n");
-			append_file(c->file, "    add rsp, 8\n");
-			append_file(c->file, "    push rax\n");
+			snprintf(str, 50, "    sub %s, %s\n", buf1, buf2);
+			append_file(c->file, str);
+			res = buf1;
 			break;
         case T_MULTIPLY:
 			append_file(c->file, "    ; -- multipy --\n");
-			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    imul rax, [rsp]\n");
-			append_file(c->file, "    add rsp, 8\n");
-			append_file(c->file, "    push rax\n");
+			snprintf(str, 50, "    imul %s, %s\n", buf1, buf2);
+			append_file(c->file, str);
+			res = reg1;
 			break;
         case T_DIVIDE:
 			append_file(c->file, "    ; -- divide --\n");
@@ -96,7 +146,7 @@ void compile_op(compiler_T* c, ast_node_T* node) {
 			append_file(c->file, "    cqo\n");
 			append_file(c->file, "    pop rbx\n");
 			append_file(c->file, "    idiv rbx\n");
-			append_file(c->file, "    push rax\n");
+			//append_file(c->file, "    push rax\n");
 			break;
         case T_MODULUS:
 			append_file(c->file, "    ; -- modulus --\n");
@@ -104,7 +154,8 @@ void compile_op(compiler_T* c, ast_node_T* node) {
 			append_file(c->file, "    cqo\n");
 			append_file(c->file, "    pop rbx\n");
 			append_file(c->file, "    idiv rbx\n");
-			append_file(c->file, "    push rdx\n");
+			append_file(c->file, "    mov rax, rdx\n");
+			//append_file(c->file, "    push rdx\n");
 			break;
 
 		default:
@@ -112,62 +163,93 @@ void compile_op(compiler_T* c, ast_node_T* node) {
 	}
 
 	c->stack_pointer -= 1;
+	return res;
 }
 
-void compile_value(compiler_T* c, ast_node_T* node) {
+char* compile_value(compiler_T* c, ast_node_T* node, size_t reg_no) {
 	log_debug(c->debug, "compile value\n");
 	ast_value_T* value = (ast_value_T*) node;
 
 	switch (value->t->type) {
 		case T_INTEGER:
-			append_file(c->file, "    ; -- push ");
-			append_file(c->file, value->t->value);
-			append_file(c->file, "--\n");
+			{
+				append_file(c->file, "    ; -- mov value ");
+				append_file(c->file, value->t->value);
+				append_file(c->file, "--\n");
 
-			append_file(c->file, "    push ");
-			append_file(c->file, value->t->value);
-			append_file(c->file, "\n");
-			c->stack_pointer += 1;
-			break;
+				char* reg_64 = regs_64bit[reg_no];
+				append_file(c->file, "    xor ");
+				append_file(c->file, reg_64);
+				append_file(c->file, ", ");
+				append_file(c->file, reg_64);
+				append_file(c->file, "\n");
+
+				symbol_type_T* int_type = (symbol_type_T*) value->type_sym;
+				char* reg = int_type->regs[reg_no];
+
+				append_file(c->file, "    mov ");
+				append_file(c->file, reg);
+				append_file(c->file, ", ");
+				append_file(c->file, value->t->value);
+				append_file(c->file, "\n");
+				c->stack_pointer += 1;
+				return reg;
+			}
 
 		case T_IDENT:
-			append_file(c->file, "    ; -- push ");
-			append_file(c->file, value->t->value);
-			append_file(c->file, "--\n");
+			{
+				append_file(c->file, "    ; -- mov value ");
+				append_file(c->file, value->t->value);
+				append_file(c->file, "--\n");
 
-			symbol_T* sym = symbol_table_get(c->s_table, value->t->value);
-			
-			switch (sym->type) {
-				case SYM_VAR:
-					{
-						symbol_var_T* var_sym = (symbol_var_T*) sym;
-						symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
-						append_file(c->file, "    push ");
-						append_file(c->file, var_type->operand);
+				char* reg_64 = regs_64bit[reg_no];
+				append_file(c->file, "    xor ");
+				append_file(c->file, reg_64);
+				append_file(c->file, ", ");
+				append_file(c->file, reg_64);
+				append_file(c->file, "\n");
 
-						char str[20];
+				symbol_T* sym = symbol_table_get(c->s_table, value->t->value);
+
+				switch (sym->type) {
+					case SYM_VAR:
+						{
+							symbol_var_T* var_sym = (symbol_var_T*) sym;
+							symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
+							char* reg = var_type->regs[reg_no];
+							append_file(c->file, "    mov ");
+
+							char str[40];
 							if (!var_sym->is_const) {
-								snprintf(str, 20, " [rbp+%zu]\n", (min(var_type->size, 8) * (var_sym->index+1))+2);
+								snprintf(str, 40, "%s, %s [rbp+%zu]\n",reg, var_type->operand, (8 * (var_sym->index+1))+2);
 							} else if (var_sym->is_const) {
 								size_t index = data_table_get_index(c->data_table, var_sym->const_val);
-								snprintf(str, 20, " [const%zu]\n", index);
+								snprintf(str, 40, "%s, %s [const%zu]\n", reg, var_type->operand, index);
 							}
 
-						append_file(c->file, str);
-						c->stack_pointer += 1;
-					}
-					break;
+							append_file(c->file, str);
+							c->stack_pointer += 1;
+							return reg;
+						}
 
-				default:
-					log_error(node->loc, 1, "Unexpected symbol type, expected %s, found %s.\n", symbol_get_type_string(SYM_VAR), symbol_get_type_string(sym->type));
+					default:
+						log_error(node->loc, 1, "Unexpected symbol type, expected %s, found %s.\n", symbol_get_type_string(SYM_VAR), symbol_get_type_string(sym->type));
+				}
+				break;
 			}
-			break;
 
 		case T_POINTER:
 			{
-				append_file(c->file, "    ; -- push ");
+				append_file(c->file, "    ; -- mov value ");
 				append_file(c->file, value->t->value);
 				append_file(c->file, "--\n");
+
+				char* reg_64 = regs_64bit[reg_no];
+				append_file(c->file, "    xor ");
+				append_file(c->file, reg_64);
+				append_file(c->file, ", ");
+				append_file(c->file, reg_64);
+				append_file(c->file, "\n");
 
 				symbol_T* sym = symbol_table_get(c->s_table, value->t->value);
 				switch (sym->type) {
@@ -175,20 +257,21 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 						{
 							symbol_var_T* var_sym = (symbol_var_T*) sym;
 							symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
-							append_file(c->file, "    push ");
-							append_file(c->file, var_type->operand);
+							char* reg = var_type->regs[reg_no];
+							append_file(c->file, "    mov ");
 
-							char str[20];
+							char str[40];
 							if (!var_sym->is_const) {
-								snprintf(str, 20, " rbp+%zu\n", (min(var_type->size, 8) * (var_sym->index+1))+2);
+								snprintf(str, 40, "%s, %s rbp+%zu\n",reg, var_type->operand, (8 * (var_sym->index+1))+2);
 							} else if (var_sym->is_const) {
 								size_t index = data_table_get_index(c->data_table, var_sym->const_val);
-								snprintf(str, 20, " const%zu\n", index);
+								snprintf(str, 40, "%s, %s const%zu\n", reg, var_type->operand, index);
 							}
+
 							append_file(c->file, str);
 							c->stack_pointer += 1;
+							return reg;
 						}
-						break;
 
 					default:
 						log_error(node->loc, 1, "Unexpected symbol type, expected %s, found %s.\n", symbol_get_type_string(SYM_VAR), symbol_get_type_string(sym->type));
@@ -198,38 +281,52 @@ void compile_value(compiler_T* c, ast_node_T* node) {
 
 		case T_STRING:
 			{
-				append_file(c->file, "    ; -- push ");
+				append_file(c->file, "    ; -- mov value ");
 				append_file(c->file, value->t->value);
 				append_file(c->file, "--\n");
 
+				char* reg_64 = regs_64bit[reg_no];
+				append_file(c->file, "    xor ");
+				append_file(c->file, reg_64);
+				append_file(c->file, ", ");
+				append_file(c->file, reg_64);
+				append_file(c->file, "\n");
+
+				symbol_type_T* type = (symbol_type_T*) value->type_sym;
+				char* reg = type->regs[reg_no];
+
 				size_t index = data_table_get_index(c->data_table, value->t->value);
-				append_file(c->file, "    push ");
-				char str[20];
-				snprintf(str, 20, "const%zu\n", index);
+				append_file(c->file, "    mov ");
+				char str[40];
+				snprintf(str, 40, "%s, %s const%zu\n", reg, type->operand, index);
 				append_file(c->file, str);
 				c->stack_pointer += 1;
-				break;
+				return reg;
 			}
 
 		default:
 			log_error(node->loc, 1, "Unreachable code in compile_value\n");
 	}
+
+	return NULL;
 }
 
-void compile_bin_op(compiler_T* c, ast_node_T* node) {
+char* compile_bin_op(compiler_T* c, ast_node_T* node, size_t reg_no) {
 	log_debug(c->debug, "compile bin op\n");
 	ast_bin_op_T* bin_op = (ast_bin_op_T*) node;
+	char* reg1;
+	char* reg2;
 	switch (bin_op->rhs->type) {
 		case AST_BIN_OP:
-			compile_bin_op(c, bin_op->rhs);
+			reg1 = compile_bin_op(c, bin_op->rhs, (reg_no+1)%MAX_REGS);
 			break;
 
 		case AST_VALUE:
-			compile_value(c, bin_op->rhs);
+			reg1 = compile_value(c, bin_op->rhs, (reg_no+1)%MAX_REGS);
 			break;
 
 		case AST_PROP:
-			compile_prop(c, bin_op->rhs);
+			reg1 = compile_prop(c, bin_op->rhs, (reg_no+1)%MAX_REGS);
 			break;
 
 		default:
@@ -239,21 +336,22 @@ void compile_bin_op(compiler_T* c, ast_node_T* node) {
 
 	switch (bin_op->lhs->type) {
 		case AST_VALUE:
-			compile_value(c, bin_op->lhs);
+			reg2 = compile_value(c, bin_op->lhs, reg_no);
 			break;
 
 		case AST_PROP:
-			compile_prop(c, bin_op->lhs);
+			reg2 = compile_prop(c, bin_op->lhs, reg_no);
 			break;
 
 		default:
 			log_error(bin_op->lhs->loc, 1, "Unexpected node in bin_op lhs. Found: %s.\n", ast_get_name(bin_op->rhs->type));
 	}
-	compile_op(c, bin_op->op);
+	return compile_op(c, bin_op->op, reg2, reg1);
 }
 
 // array_element : ID LSQUARE (array_element | IDENT | INTEGER | bin_op) RSQUARE ;
-void compile_array_element(compiler_T* c, ast_node_T* node) {
+char* compile_array_element(compiler_T* c, ast_node_T* node) {
+	log_error(NULL, 1, "array_element not implemented with move yet\n");
 	log_debug(c->debug, "compile array element\n");
 	ast_array_element_T* arr = (ast_array_element_T*) node;
 
@@ -271,10 +369,10 @@ void compile_array_element(compiler_T* c, ast_node_T* node) {
 			append_file(c->file,  "    push QWORD [rax]\n");
 			break;
 		case AST_BIN_OP:
-			compile_bin_op(c, arr->offset);
+			compile_bin_op(c, arr->offset, 0);
 			break;
 		case AST_VALUE:
-			compile_value(c, arr->offset);
+			compile_value(c, arr->offset, 0);
 			break;
 
 		default:
@@ -285,7 +383,7 @@ void compile_array_element(compiler_T* c, ast_node_T* node) {
 	append_file(c->file,  "    xor rax, rax\n");
 	append_file(c->file,  "    xor rbx, rbx\n");
 	char str[50];
-	snprintf(str, 50, "    mov rax, %s [rbp+%zu]\n",type_sym->operand, (min(type_sym->size, 8) * (arr_sym->index+1))+2);
+	snprintf(str, 50, "    mov rax, %s [rbp+%zu]\n",type_sym->operand, (8 * (arr_sym->index+1))+2);
 	append_file(c->file, str);
 	append_file(c->file,  "    add rax, 8\n");
 	append_file(c->file,  "    pop rbx\n");
@@ -293,22 +391,28 @@ void compile_array_element(compiler_T* c, ast_node_T* node) {
 	append_file(c->file,  "    add rax, rbx\n");
 	append_file(c->file,  "    push rax\n");
 	c->stack_pointer += 1;
+
+	return "";
 }
 
 // array : ID LSQUARE INTEGER RSQUARE ;
-void compile_array(compiler_T* c, ast_node_T* node) {
+char* compile_array(compiler_T* c, ast_node_T* node, size_t reg_no) {
 	log_debug(c->debug, "compile array\n");
 	ast_array_T* arr = (ast_array_T*) node;
+	symbol_type_T* elem_type = (symbol_type_T*) arr->elem_type;
 
+	char* reg = regs_64bit[reg_no];
 	append_file(c->file, "    ; -- init array --\n");
 	char str[50];
 	snprintf(str, 50, "    mov QWORD [mem+%zu], %s\n", (c->mem_pointer), arr->len->value);
 	append_file(c->file, str);
-	snprintf(str, 50, "    push mem+%zu\n", c->mem_pointer);
+	snprintf(str, 50, "    mov %s, mem+%zu\n", reg, c->mem_pointer);
 	append_file(c->file, str);
 
-	c->mem_pointer += (atoi(arr->len->value) * 8);
+	c->mem_pointer += (atoi(arr->len->value) * elem_type->size) + 8;
 	c->stack_pointer += 1;
+
+	return reg;
 }
 
 
@@ -317,17 +421,18 @@ void compile_dump(compiler_T* c, ast_node_T* node) {
 	log_debug(c->debug, "compile dump\n");
 	ast_dump_T* dump = (ast_dump_T*) node;
 
+	char* reg;
 	switch (dump->value->type) {
 		case AST_BIN_OP:
-			compile_bin_op(c, dump->value);
+			reg = compile_bin_op(c, dump->value, 0);
 			break;
 
 		case AST_VALUE:
-			compile_value(c, dump->value);
+			reg = compile_value(c, dump->value, 0);
 			break;
 
 		case AST_PROP:
-			compile_prop(c, dump->value);
+			reg = compile_prop(c, dump->value, 0);
 			break;
 
 		case AST_ARRAY_ELEMENT:
@@ -345,44 +450,45 @@ void compile_dump(compiler_T* c, ast_node_T* node) {
 	}
 	
 	append_file(c->file, "    ; -- dump --\n");
-	append_file(c->file, "    pop rdi\n");
-	append_file(c->file, "    call  _dump\n");
+	append_file(c->file, "    mov rdi, ");
+	append_file(c->file, reg);
+	append_file(c->file, "\n    call  _dump\n");
 	c->stack_pointer -= 1;
 }
 
-void compile_cond_op(compiler_T* c, ast_node_T* node) {
+void compile_cond_op(compiler_T* c, ast_node_T* node, char* reg1, char* reg2) {
 	ast_cond_op_T* cond_op = (ast_cond_op_T*) node;
 	if (c->stack_pointer < 2) {
 		log_error(node->loc, 1, "Stack pointer to small for conditional operation.\n");
 	}
 
+	append_file(c->file, "    xor rax, rax\n");
+
+	char buf1[5] = {0};
+	char buf2[5] = {0};
+	match_regs(reg1, reg2, buf1, buf2);
+	char str[30];
+	snprintf(str, 30, "    cmp %s, %s\n", buf1, buf2);
+
 	switch (cond_op->t->type) {
 		case T_EQUALS:
 			append_file(c->file, "    ; -- equals --\n");
-			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    pop rbx\n");
-			append_file(c->file, "    cmp rbx, rax\n");
+			append_file(c->file, str);
 			append_file(c->file, "    sete al\n");
 			break;
 		case T_NOT_EQUALS:
-			append_file(c->file, "    ; -- equals --\n");
-			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    pop rbx\n");
-			append_file(c->file, "    cmp rbx, rax\n");
+			append_file(c->file, "    ; -- not equals --\n");
+			append_file(c->file, str);
 			append_file(c->file, "    setne al\n");
 			break;
 		case T_LESS:
 			append_file(c->file, "    ; -- less than --\n");
-			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    pop rbx\n");
-			append_file(c->file, "    cmp rbx, rax\n");
+			append_file(c->file, str);
 			append_file(c->file, "    setl al\n");
 			break;
 		case T_GREATER:
 			append_file(c->file, "    ; -- greater than --\n");
-			append_file(c->file, "    pop rax\n");
-			append_file(c->file, "    pop rbx\n");
-			append_file(c->file, "    cmp rbx, rax\n");
+			append_file(c->file, str);
 			append_file(c->file, "    setg al\n");
 			break;
 
@@ -390,11 +496,10 @@ void compile_cond_op(compiler_T* c, ast_node_T* node) {
 			log_error(cond_op->base.loc, 1, "Unreachable code in compile_cond_op\n");
 
 	}
-
-	c->stack_pointer -= 2;
 }
 
 void compile_logical(compiler_T* c, ast_node_T* node) {
+	log_error(NULL, 1, "Logical op not implemented for move yet\n");
 	ast_logical_op_T* log = (ast_logical_op_T*) node;
 	append_file(c->file, "    pop rbx\n");
 
@@ -415,28 +520,30 @@ void compile_logical(compiler_T* c, ast_node_T* node) {
 // conditional : (value | bin_op | prop) cond_op (value | bin_op | prop | array_element) ;
 void compile_conditional(compiler_T* c, ast_node_T* node) {
 	ast_cond_T* cond = (ast_cond_T*) node;
+	char* reg1;
+	char* reg2;
 
 	if (cond->lhs->type == AST_BIN_OP) {
-		compile_bin_op(c, cond->lhs);
+		reg1 = compile_bin_op(c, cond->lhs, 0);
 	} else if(cond->lhs->type == AST_PROP) {
-		compile_prop(c, cond->lhs);
+		reg1 = compile_prop(c, cond->lhs, 0);
 	} else {
-		compile_value(c, cond->lhs);
+		reg1 = compile_value(c, cond->lhs, 0);
 	}
 
 	if (cond->rhs->type == AST_BIN_OP) {
-		compile_bin_op(c, cond->rhs);
+		reg2 = compile_bin_op(c, cond->rhs, 1);
 	} else if(cond->rhs->type == AST_PROP) {
-		compile_prop(c, cond->rhs);
+		reg2 = compile_prop(c, cond->rhs, 1);
 	} else if(cond->rhs->type == AST_ARRAY_ELEMENT) {
-		compile_array_element(c, cond->rhs);
+		reg2 = compile_array_element(c, cond->rhs);
 		append_file(c->file,  "    pop rax\n");
 		append_file(c->file,  "    push QWORD [rax]\n");
 	} else {
-		compile_value(c, cond->rhs);
+		reg2 = compile_value(c, cond->rhs, 1);
 	}
 
-	compile_cond_op(c, cond->op);
+	compile_cond_op(c, cond->op, reg1, reg2);
 
 	if (cond->logical != NULL) {
 		append_file(c->file, "    push rax\n");
@@ -455,6 +562,7 @@ void compile_block(compiler_T* c, ast_node_T* node) {
 }
 
 void compile_else(compiler_T* c, ast_node_T* node) {
+	log_error(NULL, 1, "Compile else not implemented for move yet\n");
 	ast_else_T* elze = (ast_else_T*) node;
 	char str[50];
 	snprintf(str, 50, ".else_%zu:\n", elze->index);
@@ -475,6 +583,7 @@ void compile_else(compiler_T* c, ast_node_T* node) {
 
 // while : WHILE conditional block ;
 void compile_while(compiler_T* c, ast_node_T* node) {
+	log_error(NULL, 1, "Compile while not implemented for move yet\n");
 	log_debug(c->debug, "compile while\n");
 	ast_while_T* while_node = (ast_while_T*) node;
 
@@ -529,50 +638,57 @@ void compile_if(compiler_T* c, ast_node_T* node) {
 }
 
 // attribute : ID ASSIGN (value | array_element | prop | bin_op | array) COMMA?
-void compile_prop_init(compiler_T* c, ast_node_T* node, symbol_T* type) {
+void compile_prop_init(compiler_T* c, ast_node_T* node, symbol_T* type, size_t base) {
 	ast_attribute_T* attr = (ast_attribute_T*)node;
 
 	size_t offset = symbol_get_prop_offset(type, attr->name->value);
 	symbol_type_T* prop_type = (symbol_type_T*)symbol_get_prop_type(type, attr->name->value);
 
+	char* reg = prop_type->regs[0];
 	if (attr->value->type == AST_PROP) {
-		compile_prop(c, attr->value);
+		compile_prop(c, attr->value, 0);
 	} else if (attr->value->type == AST_ARRAY_ELEMENT) {
-		compile_array_element(c, attr->value);
+		reg = compile_array_element(c, attr->value);
 		append_file(c->file,  "    pop rax\n");
 		append_file(c->file,  "    push QWORD [rax]\n");
 	} else if (attr->value->type == AST_ARRAY) {
-		compile_array(c, attr->value);
+		compile_array(c, attr->value, 0);
 	} else if (attr->value->type == AST_BIN_OP) {
-		compile_bin_op(c, attr->value);
+		compile_bin_op(c, attr->value, 0);
 	} else if (attr->value->type == AST_VALUE) {
-		compile_value(c, attr->value);
+		compile_value(c, attr->value, 0);
 	} else {
 		log_error(attr->value->loc, 1, "Unexpected node type as prop initialization, found '%s'.\n", ast_get_name(attr->value->type));
 	}
 
 	char str[50];
-	snprintf(str, 50, "    pop %s [mem+%zu]\n",prop_type->operand, c->mem_pointer);
+	snprintf(str, 50, "    mov %s [mem+%zu], %s\n",prop_type->operand, base + offset, reg);
 	append_file(c->file, str);
-	c->mem_pointer += prop_type->size;
 }
 
 // struct_init : ID LCURLY (attribute)* RCURLY ;
-void compile_struct_init(compiler_T* c, ast_node_T* node) {
+char* compile_struct_init(compiler_T* c, ast_node_T* node, size_t reg_no) {
 	ast_struct_init_T* structure = (ast_struct_init_T*) node;
 	symbol_type_T* symbol = (symbol_type_T*)symbol_table_get(c->s_table, structure->struct_name);
 
-	append_file(c->file, "    ; -- init struct --\n");
+	append_file(c->file, "    ; -- init struct ");
+	append_file(c->file, structure->struct_name);
+	append_file(c->file, " --\n");
 
 	size_t base_addr = c->mem_pointer;
 
 	for (size_t i = 0; i < structure->attr_count; i++) {
-		compile_prop_init(c, structure->attributes[i], (symbol_T*)symbol);
+		compile_prop_init(c, structure->attributes[i], (symbol_T*)symbol, base_addr);
 	}
 
+	c->mem_pointer += symbol->size;
+
+	char* reg = symbol->regs[reg_no];
 	char str[50];
-	snprintf(str, 50, "    push mem+%zu\n", base_addr);
+	snprintf(str, 50, "    mov %s, mem+%zu\n", reg, base_addr);
 	append_file(c->file, str);
+
+	return reg;
 }
 
 // assign : (ID | array_element) ASSIGN (value | bin_op | array | array_element | prop) ;
@@ -582,39 +698,53 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 	if (sym == NULL && a->lhs->type != AST_PROP) {
 		log_error(node->loc, 1, "Uninitialized symbol '%s' used in compile_assign\n", a->ident->value);
 	}
-	// TODO: sym is null when compiling, add function to get prop symbol out of parent
+	
 	if (sym == NULL) {
 		ast_prop_T* p = (ast_prop_T*)a->lhs;
 		symbol_var_T* parent = (symbol_var_T*)p->parent_sym;
 		sym = symbol_get_prop(parent->type, p->prop->value);
 	}
 
+	char* reg;
 	log_debug(c->debug, "Compile rhs\n");
 	if (a->value->type == AST_VALUE) {
-		compile_value(c, a->value);
+		reg = compile_value(c, a->value, 0);
 	} else if (a->value->type == AST_BIN_OP) {
-		compile_bin_op(c, a->value);
+		reg = compile_bin_op(c, a->value, 0);
 	} else if (a->value->type == AST_PROP) {
-		compile_prop(c, a->value);
+		reg = compile_prop(c, a->value, 0);
 	} else if (a->value->type == AST_ARRAY) {
-		compile_array(c, a->value);
+		reg = compile_array(c, a->value, 0);
 	} else if (a->value->type == AST_STRUCT_INIT) {
-		compile_struct_init(c, a->value);
+		reg = compile_struct_init(c, a->value, 0);
 	} else if (a->value->type == AST_ARRAY_ELEMENT) {
-		compile_array_element(c, a->value);
+		reg = compile_array_element(c, a->value);
 		append_file(c->file,  "    pop rax\n");
 		append_file(c->file,  "    push QWORD [rax]\n");
 	} else if (a->value->type == AST_SYSCALL) {
 		compile_syscall(c, a->value);
-		append_file(c->file,  "    push rax\n");
+		symbol_type_T* t;
+		if (sym->type == SYM_VAR) {
+			symbol_var_T* v = (symbol_var_T*) sym;
+			t = (symbol_type_T*)v->type;
+		} else {
+			symbol_prop_T* p = (symbol_prop_T*) sym;
+			t = (symbol_type_T*)p->type;
+		}
+		char str[40];
+		char* reg_64 = regs_64bit[3];
+		reg = t->regs[3];
+		snprintf(str, 40, "    xor %s, %s\n", reg_64, reg_64);
+		append_file(c->file, str);
+		snprintf(str, 40, "    mov %s, %s\n", reg_64, regs_64bit[6]);
+		append_file(c->file, str);
 	} else if (a->value->type == AST_FUNC_CALL) {
-		compile_func_call(c, a->value);
-		append_file(c->file,  "    push rax\n");
+		reg = compile_func_call(c, a->value);
 	} else {
 		log_error(a->value->loc, 1, "Unexpected ast type for rhs of compile_assign. Found: %s\n", ast_get_name(a->base.type));
 	}
 
-	log_debug(c->debug, "Compile lhs\n");
+	log_debug(c->debug, "Compile lhs %s\n", a->ident->value);
 	switch (sym->type) {
 		case SYM_PROP:
 			if (a->lhs->type == AST_PROP) {
@@ -625,35 +755,42 @@ void compile_assign(compiler_T* c, ast_node_T* node) {
 					symbol_type_T* prop_type = (symbol_type_T*)symbol_get_prop_type(parent->type, prop->prop->value);
 					size_t offset = symbol_get_prop_offset(parent->type, prop->prop->value);
 
-					append_file(c->file, "    xor rax, rax\n");
+					char* reg2 = prop_type->regs[3];
+					append_file(c->file, "    ;-- assign prop --\n");
 					char str[50];
-					snprintf(str, 50, "    mov rax, QWORD [rbp+%zu]\n", (min(prop_type->size, 8) * (parent->index+1))+2);
+					snprintf(str, 50, "    xor %s, %s\n", reg2, reg2);
 					append_file(c->file, str);
-					snprintf(str, 50, "    add rax, %zu\n", offset);
+					snprintf(str, 50, "    mov %s, %s [rbp+%zu]\n", reg2, prop_type->operand, (8 * (parent->index+1))+2);
 					append_file(c->file, str);
-					append_file(c->file, "    pop QWORD [rax]\n");
+					snprintf(str, 50, "    add %s, %zu\n", reg2, offset);
+					append_file(c->file, str);
+					snprintf(str, 50, "    mov %s [%s], %s\n", prop_type->operand, reg2, reg);
+					append_file(c->file, str);
 				} else {
 					log_error(node->loc, 1, "Invalid property '%s' for type '%s'\n", prop->prop->value, prop->parent_sym->name);
 				}
+			} else { 
+				log_error(node->loc, 1, "Something is seriously wrong with assignment of properties: symbol: %s\n", sym->name);
 			}
 			break;
 
 		case SYM_VAR:
-			if (a->lhs->type == AST_ARRAY_ELEMENT) {
-				compile_array_element(c, a->lhs);
-				append_file(c->file, "    pop rax\n");
-				append_file(c->file, "    pop rsi\n");
-				append_file(c->file, "    mov QWORD [rax], rsi\n");
-			} else if (a->lhs->type == AST_VALUE) {
+			{
 				symbol_var_T* var_sym = (symbol_var_T*) sym;
-				symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
-				char str[20];
-				append_file(c->file, "    pop ");
-				append_file(c->file, var_type->operand);
-				append_file(c->file, " [rbp+");
-
-				snprintf(str, 20, "%zu]\n", (min(var_type->size, 8) * (var_sym->index+1))+2);
-				append_file(c->file, str);
+				char str[40];
+				if (a->lhs->type == AST_ARRAY_ELEMENT) {
+					symbol_type_T* var_type = (symbol_type_T*) var_sym->elem_type;
+					char* reg2 = compile_array_element(c, a->lhs);
+					snprintf(str, 40, "    mov %s [%s], %s\n",var_type->operand, reg2, reg);
+					append_file(c->file, str);
+				} else if (a->lhs->type == AST_VALUE) {
+					symbol_type_T* var_type = (symbol_type_T*) var_sym->type;
+					append_file(c->file, "    mov ");
+					append_file(c->file, var_type->operand);
+					append_file(c->file, " [rbp+");
+					snprintf(str, 40, "%zu], %s\n", (8 * (var_sym->index+1))+2, reg);
+					append_file(c->file, str);
+				}
 			}
 			break;
 
@@ -675,13 +812,13 @@ void compile_sys_arg(compiler_T* c, ast_node_T* node) {
 	switch (node->type) {
 
         case AST_BIN_OP:
-			compile_bin_op(c, node);
+			compile_bin_op(c, node, 6);
 			break;
         case AST_VALUE:
-			compile_value(c, node);
+			compile_value(c, node, 6);
 			break;
         case AST_PROP:
-			compile_prop(c, node);
+			compile_prop(c, node, 6);
 			break;
 
 		default:
@@ -703,37 +840,42 @@ void compile_syscall(compiler_T* c, ast_node_T* node) {
 	append_file(c->file, "    ; -- syscall --\n");
 
 	if (syscall->count > 1) {
+		append_file(c->file, "    xor rdi, rdi\n");
 		compile_sys_arg(c, syscall->params[1]);
-		append_file(c->file, "    pop rdi\n");
+		append_file(c->file, "    mov rdi, rax\n");
 	}
 
 	if (syscall->count > 2) {
+		append_file(c->file, "    xor rsi, rsi\n");
 		compile_sys_arg(c, syscall->params[2]);
-		append_file(c->file, "    pop rsi\n");
+		append_file(c->file, "    mov rsi, rax\n");
 	}
 
 	if (syscall->count > 3) {
+		append_file(c->file, "    xor rdx, rdx\n");
 		compile_sys_arg(c, syscall->params[3]);
-		append_file(c->file, "    pop rdx\n");
+		append_file(c->file, "    mov rdx, rax\n");
 	}
 
 	if (syscall->count > 4) {
+		append_file(c->file, "    xor r10, r10\n");
 		compile_sys_arg(c, syscall->params[4]);
-		append_file(c->file, "    pop r10\n");
+		append_file(c->file, "    mov r10, rax\n");
 	}
 	
 	if (syscall->count > 5) {
+		append_file(c->file, "    xor r8, r8\n");
 		compile_sys_arg(c, syscall->params[5]);
-		append_file(c->file, "    pop r8\n");
+		append_file(c->file, "    mov r8, rax\n");
 	}
 
 	if (syscall->count > 6) {
+		append_file(c->file, "    xor r9, r9\n");
 		compile_sys_arg(c, syscall->params[6]);
-		append_file(c->file, "    pop r9\n");
+		append_file(c->file, "    mov r9, rax\n");
 	}
 
 	compile_sys_arg(c, syscall->params[0]);
-	append_file(c->file, "    pop rax\n");
 
 	append_file(c->file, "    syscall\n");
 }
@@ -750,35 +892,21 @@ void compile_func_param(compiler_T* c, token_T* token, size_t param_index) {
 
 	symbol_var_T* param_sym = (symbol_var_T*) sym;
 	symbol_type_T* param_type = (symbol_type_T*) param_sym->type;
+	log_debug(c->debug, "param type name: %s\n", param_type->base.name);
 	char str[50];
-	snprintf(str, 49, "    mov %s [rbp+%zu]", param_type->operand, (min(param_type->size, 8) * (param_sym->index+1))+2);
+	snprintf(str, 49, "    mov %s [rbp+%zu], %s\n",
+			param_type->operand,
+			(8 * (param_sym->index+1))+2, 
+			param_type->regs[param_index]
+		);
+	log_debug(c->debug, "\t%s\n", str);
 	append_file(c->file, str);
-	switch (param_index) {
-		case 0:
-			append_file(c->file, ", rdi\n");
-			break;
-		case 1:
-			append_file(c->file, ", rsi\n");
-			break;
-		case 2:
-			append_file(c->file, ", rdx\n");
-			break;
-		case 3:
-			append_file(c->file, ", rcx\n");
-			break;
-		case 4:
-			append_file(c->file, ", r8\n");
-			break;
-		case 5:
-			append_file(c->file, ", r9\n");
-			break;
-	}
-
 }
 
 // func_decl : FUNC ID LPAREN (func_param (COMMA func_param)*)? RPAREN block ;
 void compile_func_decl(compiler_T* c, ast_node_T* node) {
 	ast_func_decl_T* decl = (ast_func_decl_T*)node;
+	log_debug(c->debug, "func decl name: %s\n", decl->ident->value);
 
 	append_file(c->file, "_");
 	append_file(c->file, decl->ident->value);
@@ -813,14 +941,14 @@ void compile_func_decl(compiler_T* c, ast_node_T* node) {
 }
 
 // arg : (value | bin_op | array_element | prop) ;
-void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
+void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index, symbol_T* param) {
 	switch (node->type) {
 		case AST_VALUE:
-			compile_value(c, node);
+			compile_value(c, node, param_index);
 			break;
 
 		case AST_BIN_OP:
-			compile_bin_op(c, node);
+			compile_bin_op(c, node, param_index);
 			break;
 
 		case AST_ARRAY_ELEMENT:
@@ -828,7 +956,7 @@ void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
 			break;
 
 		case AST_PROP:
-			compile_prop(c, node);
+			compile_prop(c, node, param_index);
 			break;
 
 		case AST_PROGRAM:
@@ -855,36 +983,17 @@ void compile_func_arg(compiler_T* c, ast_node_T* node, size_t param_index) {
 		case AST_ATTRIBUTE:
 			log_error(node->loc, 1, "Invalid node in function call argument. Found %s\n", ast_get_name(node->type));
 	}
-
-        switch (param_index) {
-		case 0:
-			append_file(c->file, "    pop rdi\n");
-			break;
-		case 1:
-			append_file(c->file, "    pop rsi\n");
-			break;
-		case 2:
-			append_file(c->file, "    pop rdx\n");
-			break;
-		case 3:
-			append_file(c->file, "    pop rcx\n");
-			break;
-		case 4:
-			append_file(c->file, "    pop r8\n");
-			break;
-		case 5:
-			append_file(c->file, "    pop r9\n");
-			break;
-	}
 }
 
 // func_call : ID LPAREN (arg (COMMA arg)*)? RPAREN ;
-void compile_func_call(compiler_T* c, ast_node_T* node) {
+char* compile_func_call(compiler_T* c, ast_node_T* node) {
 	ast_func_call_T* call = (ast_func_call_T*) node;
 	char* name = call->ident->value;
+	log_debug(c->debug, "Function: %s\n", name);
+	symbol_func_T* func_sym = (symbol_func_T*) symbol_table_get(c->s_table, name);
 	
 	for (int i = call->param_count - 1; i >= 0; i--) {
-		compile_func_arg(c, call->params[i], i);
+		compile_func_arg(c, call->params[i], i, func_sym->params[i]);
 	}
 	append_file(c->file, "    call _");
 	append_file(c->file, name);
@@ -895,19 +1004,30 @@ void compile_func_call(compiler_T* c, ast_node_T* node) {
 		snprintf(str, 20, "    add rsp, %zu\n", (8 * (call->param_count - 6)));
 		append_file(c->file, str);
 	}
+	if (func_sym->ret_type != NULL) {
+		symbol_type_T* ret_type = (symbol_type_T*)func_sym->ret_type;
+		char* reg = ret_type->regs[3];
+		char str[40];
+		snprintf(str, 40, "    mov %s, %s\n", reg, ret_type->regs[6]);
+		append_file(c->file, str);
+		return reg;
+	}
+
+	return "";
 }
 
 // array_expr : array_element (ASSIGN | op) (value | bin_op | array) ;
 void compile_array_expr(compiler_T* c, ast_node_T* node) {
+	log_error(NULL, 1, "Compile array_expr not implemented for move yet\n");
 	log_debug(c->debug, "compile array expr \n");
 	ast_array_expr_T* expr = (ast_array_expr_T*) node;
 
 	if (expr->rhs->type == AST_VALUE) {
-		compile_value(c, expr->rhs);
+		compile_value(c, expr->rhs, 0);
 	} else if (expr->rhs->type == AST_BIN_OP) {
-		compile_bin_op(c, expr->rhs);
+		compile_bin_op(c, expr->rhs, 0);
 	} else if (expr->rhs->type == AST_ARRAY) {
-		compile_array(c, expr->rhs);
+		compile_array(c, expr->rhs, 0);
 	} else if (expr->rhs->type == AST_ARRAY_ELEMENT) {
 		compile_array_element(c, expr->rhs);
 		append_file(c->file,  "    pop rax\n");
@@ -927,7 +1047,7 @@ void compile_array_expr(compiler_T* c, ast_node_T* node) {
 	} else {
 		append_file(c->file, "    pop rax\n");
 		append_file(c->file, "    push QWORD [rax]\n");
-		compile_op(c, expr->op);
+		compile_op(c, expr->op, "", "");
 	}
 }
 
@@ -941,7 +1061,7 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 			compile_syscall(c, expr->child);
 			break;
 		case AST_BIN_OP:
-			compile_bin_op(c, expr->child);
+			compile_bin_op(c, expr->child, 0);
 			break;
 		case AST_IF:
 			compile_if(c, expr->child);
@@ -965,11 +1085,14 @@ void compile_expr(compiler_T* c, ast_node_T* node) {
 			compile_func_call(c, expr->child);
 			break;
 		case AST_ARRAY_EXPR:
-			compile_array_expr(c, expr->child);
+			log_error(NULL, 1, "Array expressions should be faced out, compile_expr\n");
+			//compile_array_expr(c, expr->child);
 			break;
 		case AST_CONST_DECL:
 			break;
 
+		case AST_STRUCT_INIT:
+		case AST_ATTRIBUTE:
 		case AST_ARRAY:
 		case AST_PROP:
 		case AST_ARRAY_ELEMENT:
@@ -1067,13 +1190,27 @@ void compile(compiler_T* c) {
 				append_file(c->file, ch);
 			}
 			append_file(c->file, "0\n");
-		} else if (strcmp(data->type, "int") == 0) {
+		} else if (strcmp(data->type, "i32") == 0) {
+			char s[25];
+			snprintf(s, 25, "    const%zu: dq ", i);
+			append_file(c->file, s);
+			append_file(c->file, data->t->value);
+			append_file(c->file, "\n");
+		} else if (strcmp(data->type, "i16") == 0) {
+			char s[25];
+			snprintf(s, 25, "    const%zu: dq ", i);
+			append_file(c->file, s);
+			append_file(c->file, data->t->value);
+			append_file(c->file, "\n");
+		} else if (strcmp(data->type, "i8") == 0) {
 			char s[25];
 			snprintf(s, 25, "    const%zu: dq ", i);
 			append_file(c->file, s);
 			append_file(c->file, data->t->value);
 			append_file(c->file, "\n");
 		}
+
+
 	}
 
 	close_file(c->file);

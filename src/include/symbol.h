@@ -41,6 +41,7 @@ typedef struct SYMBOL_VAR_TYPE_STRUCT {
 	size_t size;
 	symbol_T** props;
 	size_t prop_count;
+	char* regs[8];
 } symbol_type_T;
 
 typedef struct SYMBOL_FUNC_STRUCT {

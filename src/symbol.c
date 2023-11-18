@@ -26,15 +26,47 @@ symbol_T* symbol_new_type(char* name, location_T* loc, size_t size, symbol_T** p
 	switch (size) {
 		case 1:
 			s->operand = "BYTE";
+			s->regs[0] = "dil";
+			s->regs[1] = "sil";
+			s->regs[2] = "dl";
+			s->regs[3] = "cl";
+			s->regs[4] = "r8b";
+			s->regs[5] = "r9b";
+			s->regs[6] = "al";
+			s->regs[7] = "r10b";
 			break;
 		case 2:
 			s->operand = "WORD";
+			s->regs[0] = "di";
+			s->regs[1] = "si";
+			s->regs[2] = "dx";
+			s->regs[3] = "cx";
+			s->regs[4] = "r8w";
+			s->regs[5] = "r9w";
+			s->regs[6] = "ax";
+			s->regs[7] = "r10w";
 			break;
 		case 4:
 			s->operand = "DWORD";
+			s->regs[0] = "edi";
+			s->regs[1] = "esi";
+			s->regs[2] = "edx";
+			s->regs[3] = "ecx";
+			s->regs[4] = "r8d";
+			s->regs[5] = "r9d";
+			s->regs[6] = "eax";
+			s->regs[7] = "r10d";
 			break;
 		default:
 			s->operand = "QWORD";
+			s->regs[0] = "rdi";
+			s->regs[1] = "rsi";
+			s->regs[2] = "rdx";
+			s->regs[3] = "rcx";
+			s->regs[4] = "r8";
+			s->regs[5] = "r9";
+			s->regs[6] = "rax";
+			s->regs[7] = "r10";
 			break;
 	}
 
@@ -87,6 +119,7 @@ bool symbol_is_prop(symbol_T* type, char* propname) {
 		log_error(NULL, 1, "Cannot check if symbol is prop on non type symbol: %s.\n", type->name);
 	}
 	symbol_type_T* t = (symbol_type_T*)type;
+	printf("%s\n", t->base.name);
 
 	for (size_t i = 0; i < t->prop_count; i++) {
 		if (strcmp(t->props[i]->name, propname) == 0) {
@@ -176,7 +209,8 @@ char* symbol_to_string(symbol_T* symbol) {
 		case SYM_VAR:
 			{
 				symbol_var_T* var = (symbol_var_T*) symbol;
-				sprintf(s, "<%s:%s:%zu>", var->base.name, var->type->name, var->index);
+				sprintf(s, "<%s:%zu>", var->base.name,  var->index);
+				//sprintf(s, "<%s:%s:%zu>", var->base.name, var->type->name var->index);
 			}
 			break;
 
