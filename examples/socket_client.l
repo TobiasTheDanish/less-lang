@@ -40,7 +40,7 @@ func send(sockfd: i32, str: string, len: i32, flags: i32) {
 		syscall(60, 1);
 	}
 
-	print("Message sent to server\n", 23);
+	//print("Message sent to server\n", 23);
 }
 
 func readAndSend(sockfd: i32, flags: i32) {

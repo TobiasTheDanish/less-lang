@@ -603,7 +603,7 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 	ast_node_T* v;
 	if (current->type == T_SYSCALL) {
 		v = syscall(parser);
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			symbol->type = symbol_table_get(parser->s_table, "i32");
 		}
 	} else if (next->type == T_LPAREN) {
@@ -617,44 +617,44 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 		if (!f_sym->ret_type) {
 			log_error(f->ident->loc, 1, "Cannot assign with function '%s' that returns void.\n", f->ident->value);
 		}
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			symbol->type = f_sym->ret_type;
 		}
 	} else if (s == NULL){
 		v = value(parser);
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			ast_value_T* val = (ast_value_T*) v;
 			symbol->type = val->type_sym;
 		}
 	} else if (s->type == SYM_VAR_TYPE && next->type == T_LCURLY) {
 		v = struct_init(parser);
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			ast_struct_init_T* structure = (ast_struct_init_T*) v;
 			symbol->type = symbol_table_get(parser->s_table, structure->struct_name);
 		}
 	} else if (s->type == SYM_VAR_TYPE && next->type == T_LSQUARE) {
 		v = array(parser);
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			ast_array_T* arr = (ast_array_T*) v;
 			symbol->type = arr->type;
 			symbol->elem_type = arr->elem_type;
 		}
 	} else if (s->type == SYM_VAR && next->type == T_DOT) {
 		v = prop(parser);
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			ast_prop_T* p = (ast_prop_T*) v;
 			symbol_var_T* var = (symbol_var_T*)s;
 			symbol->type = symbol_get_prop_type(var->type, p->prop->value);
 		}
 	} else if (s->type == SYM_VAR && next->type == T_LSQUARE) {
 		v = array_element(parser);
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			symbol_var_T* var = (symbol_var_T*)s;
 			symbol->type = var->elem_type;
 		}
 	} else {
 		v = value(parser);
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			ast_value_T* val = (ast_value_T*) v;
 			symbol->type = val->type_sym;
 		}
@@ -662,7 +662,7 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 
 	if (token_is_op(parser->tokens[parser->t_index])) {
 		v = bin_op(parser, v);
-		if (symbol && !symbol->is_assigned) {
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
 			ast_bin_op_T* val = (ast_bin_op_T*) v;
 			symbol->type = val->type_sym;
 		}
@@ -674,7 +674,7 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 
 }
 
-// var_decl : LET (MUT)? assign SEMI ;
+// var_decl : LET (MUT)? ID (COLON ID)? assign SEMI ;
 ast_node_T* var_decl(parser_T* parser) {
 	unsigned char is_mut = 0;
 	consume(parser);
@@ -688,6 +688,18 @@ ast_node_T* var_decl(parser_T* parser) {
 		symbol_T* s = symbol_new_var(name, token->loc, NULL, is_mut, 0, 0, 0);
 		symbol_table_put(parser->s_table, s);
 		ast_node_T* lhs = value(parser);
+
+		if (parser->tokens[parser->t_index]->type == T_COLON) {
+			consume(parser);
+			token_T* type_token = parser->tokens[parser->t_index];
+			symbol_T* type = symbol_table_get(parser->s_table, type_token->value);
+			if (type->type != SYM_VAR_TYPE) {
+				log_error(type_token->loc, 1, "Symbol %s is not a valid type.\n", type_token->value);
+			}
+			symbol_var_T* var = (symbol_var_T*) s;
+			var->type = type;
+			consume(parser);
+		}
 
 		ast_node_T* a = assign(parser, lhs);
 

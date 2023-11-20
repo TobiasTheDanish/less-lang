@@ -41,18 +41,19 @@ func send(sockfd: i32, str: string, len: i32, flags: i32) {
 		syscall(60, 1);
 	}
 
-	print("Message sent to client\n", 23);
+	//print("Message sent to client\n", 23);
 }
 
 func read(sockfd: i32, buf: array, bufSize: i32) {
-	let err = syscall(0, sockfd, buf, bufSize-1);
+	let bytesRead = syscall(0, sockfd, buf, bufSize-1);
 
-	if err < 0 {
+	if bytesRead < 0 {
 		print("Read failed.\n", 13);
 		syscall(60, 1);
 	}
 
-	syscall(1, 1, buf, buf.len);
+	print("CLIENT: ", 8);
+	syscall(1, 1, buf, bytesRead);
 }
 
 func accept(client: ClientSocket, sock: i32, addr: SocketAddressIn) {
@@ -114,14 +115,20 @@ func main() {
 	let clientAddrSize = ClientSize { size: 16 };
 	let client = ClientSocket { sockfd: 0, addrSize: clientAddrSize };
 	let clientAddress = SocketAddressIn { family: 2, port: 36895, addr: 0 };
-	accept(client, socket.sockfd, clientAddress);
+	while 1 == 1 {
+		let buf = i8[1024];
+		let mut i: i32 = 0;
+		while i < buf.len {
+			buf[i] = 0;
+			i = i + 1;
+		}
 
-	let buf = i8[1024];
-	read(client.sockfd, buf, buf.len);
+		accept(client, socket.sockfd, clientAddress);
 
-	send(client.sockfd, "SERVER: Connection accepted.\n", 31, 0);
-	
-	closeSocket(client.sockfd);
+		read(client.sockfd, buf, buf.len);
 
-	closeSocket(socket.sockfd);
+		send(client.sockfd, "SERVER: Message recieved, closing connection.\n", 47, 0);
+
+		closeSocket(client.sockfd);
+	}
 }
