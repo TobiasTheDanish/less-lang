@@ -94,7 +94,20 @@ mut_num = 34 + 35; // This compiles and reassigns mut_num;
 ```
 For now a variable has to be assigned a value at declaration.
 
+Variables can have type declarations, or you can let the compiler infer the type, example:
 
+```rust
+let char = 42; // Here the compiler infers the variable to be of type i8, simply based on the value being less than 255.
+let int: i32 = 42; // Here the variables type if i32, even if the value is smaller.
+```
+
+Current built-in types:
+
+- string
+- i8
+- i16
+- i32
+- i64
 
 ---
 
@@ -232,9 +245,50 @@ NOTE: For now any function referenced in another function have to be declared fi
 
 ---
 
+
+### Properties
+
+Properties are data stored in built-in types and structs.
+
+They can be accessed like so: 
+
+```rust
+let bytes = i8[1024];
+
+// syscall to read from stdin
+let bytesRead = syscall(0, 0, bytes, bytes.len);
+
+// some error handling...
+
+// Write the input back to stdout
+syscall(1, 1, bytes, bytesRead);
+```
+
+
+---
+
+
 ### Arrays
 
-TODO
+An array is a contiguous block of memory.
+
+In less you can initialize an array like this:
+
+```rust
+let bytes = i8[1024];
+```
+
+You access an element in the array like so: 
+
+```rust
+let bytes = i8[1024];
+
+bytes[0] = 42;
+```
+
+Arrays have the following properties:
+
+- len   -   A i32 representing the total amount of elements the array can store.
 
 
 ---
@@ -242,16 +296,58 @@ TODO
 
 ### Structs
 
-TODO
+Structs are the way to represent a structure of data. 
 
+You first have to declare a struct, e.g:
 
----
+```rust
+struct Foo {
+    bar: i32;
+    baz: i16;
+}
+```
 
+Foo can now be used as a type. For example, in a function declaration: 
 
-### Properties
+```rust
+func fooFunc(foo: Foo) {
+    let sum = foo.bar + foo.baz;
 
-TODO
+    dump sum; // Prints numbers to stdout;
+}
+```
 
+To be able to pass a variable of custom struct, you have to initialize it first.
+To initialize a struct you do the following: 
+
+```rust
+func main() {
+    let foo = Foo { bar: 42, baz 69 };
+
+    fooFunc(foo);
+}
+```
+
+The example in its entirety would look like this:
+
+```rust
+struct Foo {
+    bar: i32;
+    baz: i16;
+}
+
+func fooFunc(foo: Foo) {
+    let sum = foo.bar + foo.baz;
+
+    dump sum; // Prints numbers to stdout;
+}
+
+func main() {
+    let foo = Foo { bar: 42, baz 69 };
+
+    fooFunc(foo);
+}
+```
 
 ---
 
