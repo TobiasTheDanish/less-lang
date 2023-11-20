@@ -288,7 +288,7 @@ bytes[0] = 42;
 
 Arrays have the following properties:
 
-- len   -   A i32 representing the total amount of elements the array can store.
+- len : i32 representing the total amount of elements the array can store.
 
 
 ---
@@ -296,20 +296,24 @@ Arrays have the following properties:
 
 ### Structs
 
-Structs are the way to represent a structure of data. 
+Structs are the way to group data. 
 
 You first have to declare a struct, e.g:
 
-```rust
+```c
 struct Foo {
     bar: i32;
     baz: i16;
 }
 ```
 
-Foo can now be used as a type. For example, in a function declaration: 
+Foo can now be used as a type. 
 
-```rust
+A variable of type foo will have access to properties 'bar' and 'baz'.
+
+For example, in a function declaration: 
+
+```go
 func fooFunc(foo: Foo) {
     let sum = foo.bar + foo.baz;
 
@@ -317,10 +321,11 @@ func fooFunc(foo: Foo) {
 }
 ```
 
-To be able to pass a variable of custom struct, you have to initialize it first.
+To be able to pass a variable of a custom struct, you have to initialize it first.
+
 To initialize a struct you do the following: 
 
-```rust
+```go
 func main() {
     let foo = Foo { bar: 42, baz 69 };
 
@@ -330,7 +335,7 @@ func main() {
 
 The example in its entirety would look like this:
 
-```rust
+```c
 struct Foo {
     bar: i32;
     baz: i16;
