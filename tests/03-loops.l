@@ -1,6 +1,6 @@
 func main() {
-	let i = 1;
-	let j = 0;
+	let mut i = 1;
+	let mut j = 0;
 	while i < 11 {
 		j = i * i;
 		dump j;

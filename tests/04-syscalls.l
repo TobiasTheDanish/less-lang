@@ -1,12 +1,13 @@
 func main() {
-	let A = 65;
-	let B = 66;
-	let C = 67;
-	let newLine = 10;
+	let abc = i8[4];
+	abc[0] = 65;
+	abc[1] = 66;
+	abc[2] = 67;
+	abc[3] = 10;
 
-	if A == 69 {
+	if abc[0] == 65 {
 		syscall(60, 69);
 	} else {
-		syscall(1, 1, &A, 4*8);
+		syscall(1, 1, abc[0], 4*8);
 	}
 }

@@ -1,17 +1,17 @@
-func printChar(ch: int) {
-	syscall(1, 1, ch, 1);
+func print(buf: i8[]) {
+	syscall(1, 1, buf[0], buf.len);
 }
 
-func printString(str: string) {
-	syscall(1, 1, str, 6);
+func printChar(ch: i8) {
+	syscall(1, 1, ch, 1);
 }
 
 func main() {
 	const ROWS = 100;
-	let next = int[100];
+	let next = i8[100];
 	next[0] = 32;
 	next[next.len-1] = 32;
-	let display = int[100];
+	let display = i8[100];
 
 	let mut i = 0;
 	while i < display.len {
@@ -24,12 +24,8 @@ func main() {
 
 	i = 0;
 	while i < ROWS {
-		let mut g = 0;
+		print(display);
 
-		while g < display.len {
-			printChar(display[g]);
-			g = g + 1;
-		}
 		let mut j = 1;
 
 		while j < display.len-2 {

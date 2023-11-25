@@ -1,9 +1,9 @@
 struct User {
-	id: int;
+	id: i32;
 	name: string;
 }
 
-func print(str: string, len: int) {
+func print(str: string, len: i32) {
 	syscall(1, 1, str, len);
 }
 
@@ -13,6 +13,6 @@ func printUser(user: User) {
 }
 
 func main() {
-	let user = User{ id = 1, name = "Tobias\n" };
+	let user = User{ id: 1, name: "Tobias\n" };
 	printUser(user);
 }

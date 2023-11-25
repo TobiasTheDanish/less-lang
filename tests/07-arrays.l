@@ -1,5 +1,5 @@
 func main() {
-	let arr = int[100];
+	let arr = i8[100];
 	let mut i = 0;
 	while i < arr.len {
 		arr[i] = i + 1;
