@@ -5,7 +5,7 @@ func print(s: string) {
 	syscall(sys_write, std_out, s, 30);
 }
 
-func add(a: int, b: int) {
+func add(a: i32, b: i32) {
 	let num = a+b;
 	dump num;
 }
@@ -13,6 +13,7 @@ func add(a: int, b: int) {
 func main() {
 	let num1 = 35;
 	let num2 = 34;
-	add(num1, num2);
-	print("Hello world\n");
+	num1.add(num2);
+	let str = "Hello world\n";
+	str.print();
 }

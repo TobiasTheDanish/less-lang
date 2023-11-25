@@ -151,6 +151,8 @@ void log_todo(const char* format, ...) {
 	}
 
 	va_end(args);
+
+	exit(1);
 }
 
 void log_error(location_T* loc, int exitcode, const char* format, ...) {

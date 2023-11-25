@@ -19,6 +19,7 @@ char* token_names[] = {
 	"Let",
 	"Const",
 	"Func",
+	"Struct",
 	"Assign",
 	"Identifier",
 	"Comma",
