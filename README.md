@@ -227,7 +227,7 @@ func main() {
 ### Functions
 
 Functions are declared by the 'func' keyword, followed by the name of the function,
-the functions parameters inclosed by parentheses, and the function block itself, enclosed in curly brackets.
+the functions parameters enclosed by parentheses, and the function block itself, enclosed in curly brackets.
 
 Any less-lang program needs a main function to allow it to be compiled and executed, e.g:
 ```go
