@@ -73,12 +73,13 @@ symbol_T* symbol_new_type(char* name, location_T* loc, size_t size, symbol_T** p
 	return (symbol_T*) s;
 }
 
-symbol_T* symbol_new_prop(char* name, size_t offset, symbol_T* type) {
+symbol_T* symbol_new_prop(char* name, size_t offset, symbol_T* type, symbol_T* elem_type) {
 	symbol_prop_T* prop = malloc(sizeof(symbol_prop_T));
 
 	prop->base = *symbol_new(name, SYM_PROP, NULL);
 	prop->offset = offset;
 	prop->type = type;
+	prop->elem_type = elem_type;
 
 	return (symbol_T*) prop;
 }
@@ -112,6 +113,7 @@ symbol_T* symbol_new_func(char* name, location_T* loc) {
 }
 
 bool symbol_is_prop(symbol_T* type, char* propname) {
+	//printf("[symbol.c]: Checking if '%s' is prop of '%s'\n", propname, type->name);
 	if (type == NULL) {
 		log_error(NULL, 1, "Cannot find property from NULL symbol.\n");
 	}
@@ -119,9 +121,8 @@ bool symbol_is_prop(symbol_T* type, char* propname) {
 		log_error(NULL, 1, "Cannot check if symbol is prop on non type symbol: %s.\n", type->name);
 	}
 	symbol_type_T* t = (symbol_type_T*)type;
-	printf("%s\n", t->base.name);
-
 	for (size_t i = 0; i < t->prop_count; i++) {
+		//printf("[symbol.c]: Comparing '%s' to '%s'\n", propname, t->props[i]->name);
 		if (strcmp(t->props[i]->name, propname) == 0) {
 			return true;
 		}

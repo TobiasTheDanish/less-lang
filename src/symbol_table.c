@@ -26,7 +26,7 @@ void symbol_table_init_builtins(symbol_table_T* table) {
 	symbol_type_T* array_type = (symbol_type_T*) symbol_new_type("array", NULL, 8, NULL, 0);
 	array_type->prop_count = 1;
 	array_type->props = malloc(sizeof(symbol_T));
-	array_type->props[0] = symbol_new_prop("len", 0, symbol_table_get(table, "i32"));
+	array_type->props[0] = symbol_new_prop("len", 0, symbol_table_get(table, "i32"), NULL);
 	symbol_table_put(table, (symbol_T*)array_type);
 }
 

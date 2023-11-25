@@ -196,6 +196,8 @@ typedef struct AST_NODE_PROP {
 	ast_node_T base;
 	symbol_T* parent_sym;
 	token_T* prop;
+	ast_node_T* node;
+	unsigned char is_pointer;
 } ast_prop_T;
 
 ast_node_T* ast_new(ast_node_E type, location_T* loc);
@@ -222,7 +224,7 @@ ast_node_T* ast_new_op(token_T* t);
 ast_node_T* ast_new_value(token_T* t, symbol_T* type);
 ast_node_T* ast_new_array(symbol_T* type, symbol_T* elem_type, token_T* len);
 ast_node_T* ast_new_array_element(token_T* ident, ast_node_T* offset);
-ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop);
+ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop, ast_node_T* node, unsigned char is_pointer);
 ast_node_T* ast_new_dump(ast_node_T* value);
 
 char* ast_get_name(ast_node_E type);

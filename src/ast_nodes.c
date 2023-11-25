@@ -281,13 +281,15 @@ ast_node_T* ast_new_array_element(token_T* ident, ast_node_T* offset) {
 	return (ast_node_T*) e;
 }
 
-ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop) {
+ast_node_T* ast_new_prop(symbol_T* parent_sym, token_T* prop, ast_node_T* node, unsigned char is_pointer) {
 	ast_node_T* base = ast_new(AST_PROP, prop->loc);
 
 	ast_prop_T* p = malloc(sizeof(ast_prop_T));
 	p->base = *base;
 	p->parent_sym = parent_sym;
 	p->prop = prop;
+	p->node = node;
+	p->is_pointer = is_pointer;
 
 	return (ast_node_T*) p;
 }
