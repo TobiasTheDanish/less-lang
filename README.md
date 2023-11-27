@@ -68,8 +68,9 @@ C-style syntax
 - [x] Identifier properties
 - [x] Arrays
 - [x] Structs
-- [ ] Character literals
+- [x] Character literals
 - [ ] Import of other source files
+- [ ] Ways of allocating memory
 
 
 
