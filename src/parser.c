@@ -43,7 +43,7 @@ void consume(parser_T* parser, token_E expected_type) {
 	token_T* t = parser->tokens[parser->t_index];
 	log_debug(parser->debug, "Token: (%s, %s)\n", token_get_name(t->type), t->value);
 	if (t->type != expected_type) {
-		log_error(t->loc, 1, "Token '%s' of type '%s', is not of the expected type '%s'\n", t->value, token_get_name(t->type), token_get_name(expected_type));
+		log_error(t->loc, 1, "Parsing error: Token '%s' of type '%s', is not of the expected type '%s'\n", t->value, token_get_name(t->type), token_get_name(expected_type));
 	}
 
 	parser->tokens[parser->t_index] = lexer_next_token(parser->lexer);
@@ -123,7 +123,7 @@ ast_node_T* prop(parser_T* parser) {
 	return ast_new_prop(parent_sym, prop_token, child, is_pointer);
 }
 
-// value: (POINTER | ID | INT | STRING);
+// value: (POINTER | ID | INT | STRING | CHAR);
 ast_node_T* value(parser_T* parser) {
 	log_debug(parser->debug, "Parse value\n");
 	ast_node_T* res;
@@ -167,6 +167,11 @@ ast_node_T* value(parser_T* parser) {
 			//printf("<%s, %s>\n", token->value, "string");
 			res = ast_new_value(token, symbol_table_get(parser->s_table, "string"));
 			consume(parser, T_STRING);
+			break;
+
+		case T_CHAR: 
+			res = ast_new_value(token, symbol_table_get(parser->s_table, "i8"));
+			consume(parser, T_CHAR);
 			break;
 
 		default:

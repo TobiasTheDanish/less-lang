@@ -168,6 +168,29 @@ token_T* read_string(lexer_T* lexer, location_T* loc) {
 	return token_new(T_STRING, value, loc);
 }
 
+token_T* read_char(lexer_T* lexer, location_T* loc) {
+	advance(lexer);
+	char* value = calloc(1, sizeof(char));
+	size_t i = 0;
+	if (lexer->c == '\\') {
+		value[i++] = lexer->c;
+		value = realloc(value, (i + 1) * sizeof(char));
+		advance(lexer);
+	}
+
+	value[i++] = lexer->c;
+	value = realloc(value, (i + 1) * sizeof(char));
+	advance(lexer);
+
+	if (lexer->c != '\'') {
+		log_error(loc, 1, "Chars cannot be multiple bytes. Use double quotes if you wish to have a string.\n");
+	}
+
+	advance(lexer);
+
+	return token_new(T_CHAR, value, loc);
+}
+
 token_T* advance_with_token(lexer_T* lexer, token_E type, location_T* loc) {
 	char* val = calloc(2, sizeof(char));
 	val[0] = lexer->c;
@@ -211,6 +234,9 @@ token_T* lexer_next_token(lexer_T* lexer) {
 		}
 
 		switch (lexer->c) {
+			case '\'':
+				return read_char(lexer, loc);
+
 			case ':':
 				return advance_with_token(lexer, T_COLON, loc);
 

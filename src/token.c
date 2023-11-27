@@ -3,6 +3,7 @@
 
 char* token_names[] = { 
 	"Integer",
+	"Character",
 	"String",
 	"Plus",
 	"Minus",

@@ -345,7 +345,6 @@ char* compile_value(compiler_T* c, ast_node_T* node, size_t reg_no) {
 							}
 
 							append_file(c->file, str);
-							c->stack_pointer += 1;
 							return reg;
 						}
 
@@ -386,7 +385,6 @@ char* compile_value(compiler_T* c, ast_node_T* node, size_t reg_no) {
 							}
 
 							append_file(c->file, str);
-							c->stack_pointer += 1;
 							return reg;
 						}
 
@@ -417,7 +415,29 @@ char* compile_value(compiler_T* c, ast_node_T* node, size_t reg_no) {
 				char str[40];
 				snprintf(str, 40, "%s, %s const%zu\n", reg, type->operand, index);
 				append_file(c->file, str);
-				c->stack_pointer += 1;
+				return reg;
+			}
+
+		case T_CHAR: 
+			{
+				append_file(c->file, "    ; -- mov value ");
+				append_file(c->file, value->t->value);
+				append_file(c->file, "--\n");
+
+				char* reg_64 = regs_64bit[reg_no];
+				append_file(c->file, "    xor ");
+				append_file(c->file, reg_64);
+				append_file(c->file, ", ");
+				append_file(c->file, reg_64);
+				append_file(c->file, "\n");
+
+				symbol_type_T* type = (symbol_type_T*) value->type_sym;
+				char* reg = type->regs[reg_no];
+
+				append_file(c->file, "    mov ");
+				char str[40];
+				snprintf(str, 40, "%s, %d\n", reg, *value->t->value);
+				append_file(c->file, str);
 				return reg;
 			}
 
