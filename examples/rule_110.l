@@ -9,18 +9,18 @@ func printChar(ch: i8) {
 func main() {
 	const ROWS = 100;
 	let next = i8[100];
-	next[0] = 32;
-	next[next.len-1] = 32;
+	next[0] = ' ';
+	next[next.len-1] = ' ';
 	let display = i8[100];
 
 	let mut i = 0;
 	while i < display.len {
-		display[i] = 32;
+		display[i] = ' ';
 		i = i + 1;
 	}
 	
-	display[97] = 42;
-	display[display.len-1] = 10;
+	display[97] = '*';
+	display[display.len-1] = '\n';
 
 	i = 0;
 	while i < ROWS {
@@ -29,18 +29,18 @@ func main() {
 		let mut j = 1;
 
 		while j < display.len-2 {
-			if 42 == display[j-1] && 42 == display[j] && 42 != display[j+1] {
-				 next[j] = 42;
-			} else if 42 == display[j-1] && 42 != display[j] && 42 == display[j+1] {
-				 next[j] = 42;
-			} else if 42 != display[j-1] && 42 == display[j] && 42 == display[j+1] {
-				 next[j] = 42;
-			} else if 42 != display[j-1] && 42 == display[j] && 42 != display[j+1] {
-				 next[j] = 42;
-			} else if 42 != display[j-1] && 42 != display[j] && 42 == display[j+1] {
-				 next[j] = 42;
+			if '*' == display[j-1] && '*' == display[j] && '*' != display[j+1] {
+				 next[j] = '*';
+			} else if '*' == display[j-1] && '*' != display[j] && '*' == display[j+1] {
+				 next[j] = '*';
+			} else if '*' != display[j-1] && '*' == display[j] && '*' == display[j+1] {
+				 next[j] = '*';
+			} else if '*' != display[j-1] && '*' == display[j] && '*' != display[j+1] {
+				 next[j] = '*';
+			} else if '*' != display[j-1] && '*' != display[j] && '*' == display[j+1] {
+				 next[j] = '*';
 			} else {
-				next[j] = 32;
+				next[j] = ' ';
 			}
 
 			j = j + 1;

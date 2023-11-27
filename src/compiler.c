@@ -434,6 +434,7 @@ char* compile_value(compiler_T* c, ast_node_T* node, size_t reg_no) {
 				symbol_type_T* type = (symbol_type_T*) value->type_sym;
 				char* reg = type->regs[reg_no];
 
+				decode_escaped_characters(value->t->value);
 				append_file(c->file, "    mov ");
 				char str[40];
 				snprintf(str, 40, "%s, %d\n", reg, *value->t->value);
@@ -559,8 +560,6 @@ char* compile_array_element(compiler_T* c, ast_node_T* node, size_t reg_no, symb
 			break;
 		case AST_PROP:
 			reg = compile_prop(c, arr->offset, (reg_no + 1) % MAX_REGS);
-			snprintf(str, 50, "    mov %s, [%s]\n", reg, reg);
-			append_file(c->file, str);
 			break;
 
 		default:

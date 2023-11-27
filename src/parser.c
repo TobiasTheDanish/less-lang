@@ -960,7 +960,7 @@ ast_node_T* func_decl(parser_T* parser) {
 ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 	token_T* current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[((parser->t_index + 1) %parser->t_count)];
-	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING) { 
+	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING || current->type == T_CHAR) { 
 		ast_node_T* node;
 		if (next->type == T_LSQUARE) {
 			node = array_element(parser);
@@ -1005,7 +1005,7 @@ ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 
 		return node;
 	} else {
-		log_error(current->loc, 1, "Unexpected token in param, found: %s.\n", token_get_name(current->type));
+		log_error(current->loc, 1, "Parsing error: Unexpected token in param, found: %s.\n", token_get_name(current->type));
 		return NULL; //unreachable
 	}
 }

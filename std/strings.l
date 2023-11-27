@@ -4,7 +4,7 @@ struct String {
 }
 
 func add(str: String, char: i8) {
-	str.chars[str.len] = char;
+	&str.chars[str.len] = char;
 	str.len = str.len + 1;
 }
 
@@ -15,12 +15,12 @@ func print(str: String) {
 func main() {
 	let mut str = String{ len: 0, chars: i8[20] };
 
-	str.add(72);
-	str.add(101);
-	str.add(108);
-	str.add(108);
-	str.add(111);
-	str.add(10);
+	str.add('H');
+	str.add('e');
+	str.add('l');
+	str.add('l');
+	str.add('o');
+	str.add('\n');
 
 	str.print();
 }
