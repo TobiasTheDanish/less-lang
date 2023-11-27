@@ -885,6 +885,7 @@ token_T* func_param(parser_T* parser, symbol_func_T* func) {
 				{
 					symbol_T* var_sym = symbol_new_var(param->value, param->loc, type_sym, is_mut, 1, 0, 0);
 					((symbol_var_T*)var_sym)->elem_type = elem_type;
+					((symbol_var_T*)var_sym)->is_assigned = 1;
 					func_add_param(func, var_sym);
 					symbol_table_put(parser->s_table, var_sym);
 				}
