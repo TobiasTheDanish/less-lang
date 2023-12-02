@@ -5,9 +5,9 @@ func print(s: string) {
 	syscall(sys_write, std_out, s, 30);
 }
 
-func add(a: i32, b: i32) {
-	let num = a+b;
-	dump num;
+func add(mut a: i32, b: i32) {
+	a = a + b;
+	dump a;
 }
 
 func main() {

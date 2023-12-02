@@ -43,7 +43,7 @@ void consume(parser_T* parser, token_E expected_type) {
 	token_T* t = parser->tokens[parser->t_index];
 	log_debug(parser->debug, "Token: (%s, %s)\n", token_get_name(t->type), t->value);
 	if (t->type != expected_type) {
-		log_error(t->loc, 1, "Token '%s' of type '%s', is not of the expected type '%s'\n", t->value, token_get_name(t->type), token_get_name(expected_type));
+		log_error(t->loc, 1, "Parsing error: Token '%s' of type '%s', is not of the expected type '%s'\n", t->value, token_get_name(t->type), token_get_name(expected_type));
 	}
 
 	parser->tokens[parser->t_index] = lexer_next_token(parser->lexer);
@@ -123,7 +123,7 @@ ast_node_T* prop(parser_T* parser) {
 	return ast_new_prop(parent_sym, prop_token, child, is_pointer);
 }
 
-// value: (POINTER | ID | INT | STRING);
+// value: (POINTER | ID | INT | STRING | CHAR);
 ast_node_T* value(parser_T* parser) {
 	log_debug(parser->debug, "Parse value\n");
 	ast_node_T* res;
@@ -167,6 +167,11 @@ ast_node_T* value(parser_T* parser) {
 			//printf("<%s, %s>\n", token->value, "string");
 			res = ast_new_value(token, symbol_table_get(parser->s_table, "string"));
 			consume(parser, T_STRING);
+			break;
+
+		case T_CHAR: 
+			res = ast_new_value(token, symbol_table_get(parser->s_table, "i8"));
+			consume(parser, T_CHAR);
 			break;
 
 		default:
@@ -885,6 +890,7 @@ token_T* func_param(parser_T* parser, symbol_func_T* func) {
 				{
 					symbol_T* var_sym = symbol_new_var(param->value, param->loc, type_sym, is_mut, 1, 0, 0);
 					((symbol_var_T*)var_sym)->elem_type = elem_type;
+					((symbol_var_T*)var_sym)->is_assigned = 1;
 					func_add_param(func, var_sym);
 					symbol_table_put(parser->s_table, var_sym);
 				}
@@ -954,7 +960,7 @@ ast_node_T* func_decl(parser_T* parser) {
 ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 	token_T* current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[((parser->t_index + 1) %parser->t_count)];
-	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING) { 
+	if (current->type == T_IDENT || current->type == T_POINTER || current->type == T_INTEGER || current->type == T_STRING || current->type == T_CHAR) { 
 		ast_node_T* node;
 		if (next->type == T_LSQUARE) {
 			node = array_element(parser);
@@ -999,7 +1005,7 @@ ast_node_T* arg(parser_T* parser, symbol_var_T* param) {
 
 		return node;
 	} else {
-		log_error(current->loc, 1, "Unexpected token in param, found: %s.\n", token_get_name(current->type));
+		log_error(current->loc, 1, "Parsing error: Unexpected token in param, found: %s.\n", token_get_name(current->type));
 		return NULL; //unreachable
 	}
 }

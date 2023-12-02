@@ -16,31 +16,31 @@ struct SocketAddressIn {
 	addr: i32;
 }
 
-func print(str: string, len: i8) {
-	syscall(1, 1, str, len);
+func print(str: string) {
+	syscall(1, 1, str.chars[0], str.len);
 }
 
 func openSocket(socket: Socket) {
-	print("Open socket\n", 12);
+	print("Open socket\n");
 	let res = syscall(41, socket.domain, socket.type, socket.protocol);
 
 	if res < 0 {
-		print("Open socket failed.\n", 20);
+		print("Open socket failed.\n");
 		syscall(60, 1);
 	}
 
 	socket.sockfd = res;
 }
 
-func send(sockfd: i32, str: string, len: i32, flags: i32) {
-	let bytesSend = syscall(44, sockfd, str, len, flags, 0, 0);
+func send(sockfd: i32, buf: i8[], len: i32, flags: i32) {
+	let bytesSend = syscall(44, sockfd, buf, len, flags, 0, 0);
 
 	if bytesSend < 0 {
-		print("Send failed\n", 12);
+		print("Send failed\n");
 		syscall(60, 1);
 	}
 
-	//print("Message sent to server\n", 23);
+	//print("Message sent to server\n");
 }
 
 func readAndSend(sockfd: i32, flags: i32) {
@@ -50,30 +50,26 @@ func readAndSend(sockfd: i32, flags: i32) {
 	send(sockfd, buf, charsRead, flags);
 }
 
-func write(sockfd: i32, str: string, len: i8) {
-	syscall(1, sockfd, str, len);
-}
-
 func read(sockfd: i32, buf: array, bufSize: i32) {
 	let err = syscall(0, sockfd, buf, bufSize-1);
 
 	if err < 0 {
-		print("Read failed.\n", 13);
+		print("Read failed.\n");
 		syscall(60, 1);
 	}
 
-	syscall(1, 1, buf, buf.len);
+	syscall(1, 1, buf[0], buf.len);
 }
 
 func connect(sockfd: i32, addr: SocketAddressIn, sockLen: i32 ) {
-	print("Connecting:\n", 12);
+	print("Connecting:\n");
 	let err = syscall(42, sockfd, addr, sockLen);
 	if err < 0 {
-		print("Connecting failed\n", 18);
+		print("Connecting failed\n");
 		syscall(60, 1);
 	}
 
-	print("Connected!\n", 18);
+	print("Connected!\n");
 }
 
 func main() {

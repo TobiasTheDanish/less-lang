@@ -25,77 +25,77 @@ struct SocketAddressIn {
 	addr: i32;
 }
 
-func print(str: string, len: i8) {
-	syscall(1, 1, str, len);
+func print(str: string) {
+	syscall(1, 1, str.chars[0], str.len);
 }
 
 func closeSocket(sockfd: i32) {
 	syscall(3, sockfd);
 }
 
-func send(sockfd: i32, str: string, len: i32, flags: i32) {
-	let bytesSend = syscall(44, sockfd, str, len, flags, 0, 0);
+func send(sockfd: i32, buf: string, flags: i32) {
+	let bytesSend = syscall(44, sockfd, buf.chars[0], buf.len, flags, 0, 0);
 
 	if bytesSend < 0 {
-		print("Send failed\n", 12);
+		print("Send failed\n");
 		syscall(60, 1);
 	}
 
-	//print("Message sent to client\n", 23);
+	//print("Message sent to client\n");
 }
 
 func read(sockfd: i32, buf: array, bufSize: i32) {
 	let bytesRead = syscall(0, sockfd, buf, bufSize-1);
 
 	if bytesRead < 0 {
-		print("Read failed.\n", 13);
+		print("Read failed.\n");
 		syscall(60, 1);
 	}
 
-	print("CLIENT: ", 8);
+	print("CLIENT: ");
 	syscall(1, 1, buf, bytesRead);
 }
 
 func accept(client: ClientSocket, sock: i32, addr: SocketAddressIn) {
-	print("Accepting:\n", 11);
+	print("Accepting:\n");
 	let res = syscall(43, sock, addr, client.addrSize);
 
 	if res < 0 {
-		print("Accepting failed\n", 18);
+		print("Accepting failed\n");
 		closeSocket(sock);
 		syscall(60, 1);
 	}
 
 	client.sockfd = res;
-	print("Client connected!\n", 18);
+	print("Client connected!\n");
 }
 
 func listen(sockfd: i32, backlog: i32) {
-	print("Listen\n", 7);
+	print("Listen\n");
 	let err = syscall(50, sockfd, backlog);
 
 	if err < 0 {
-		print("Listen failed.\n", 15);
+		print("Listen failed.\n");
 		syscall(60, 1);
 	}
 }
 
 func bind(sockfd: i32, addr: SocketAddressIn) {
-	print("Bind\n", 5);
+	print("Bind\n");
 	let err = syscall(49, sockfd, addr, 16);
 
 	if err < 0 {
-		print("Bind socket failed.\n", 20);
+		print("Bind socket failed.\n");
 		syscall(60, 1);
 	}
 }
 
 func openSocket(socket: Socket) {
-	print("Open socket\n", 12);
+	print("Open socket\n");
 	let res = syscall(41, socket.domain, socket.type, socket.protocol);
 
 	if res < 0 {
-		print("Open socket failed.\n", 20);
+		print("Open socket failed.\n");
 		syscall(60, 1);
 	}
 
@@ -127,7 +127,7 @@ func main() {
 
 		read(client.sockfd, buf, buf.len);
 
-		send(client.sockfd, "SERVER: Message recieved, closing connection.\n", 47, 0);
+		send(client.sockfd, "SERVER: Message recieved, closing connection.\n", 0);
 
 		closeSocket(client.sockfd);
 	}

@@ -5,7 +5,7 @@ func main() {
 	abc[2] = 67;
 	abc[3] = 10;
 
-	if abc[0] == 65 {
+	if abc[0] == 69 {
 		syscall(60, 69);
 	} else {
 		syscall(1, 1, abc[0], 4*8);

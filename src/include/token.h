@@ -11,6 +11,7 @@ typedef struct LOCATION {
 
 typedef enum TOKEN_E {
 	T_INTEGER,
+	T_CHAR,
 	T_STRING,
 	T_PLUS,
 	T_MINUS,

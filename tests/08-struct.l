@@ -3,13 +3,13 @@ struct User {
 	name: string;
 }
 
-func print(str: string, len: i32) {
-	syscall(1, 1, str, len);
+func print(str: string) {
+	syscall(1, 1, &str.chars[0], str.len);
 }
 
 func printUser(user: User) {
 	dump user.id;
-	print(user.name, 8);
+	print(user.name);
 }
 
 func main() {
