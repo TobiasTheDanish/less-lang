@@ -105,6 +105,9 @@ let int: i32 = 42; // Here the variables type if i32, even if the value is small
 Current built-in types:
 
 - string
+  - props:
+    - len: i32 - the length of the string
+    - chars: i8[] - the actual array of characters
 - i8
 - i16
 - i32
