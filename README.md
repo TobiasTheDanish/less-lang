@@ -217,7 +217,7 @@ func main() {
    let str = "\t\"Hello \vworld!\"\n";
 
    // the next line writes the content of the 'str' variable to stdout
-   syscall(1, 1, str, 17);
+   syscall(1, 1, str.chars[0], str.len);
    // syscall 1 is the write syscall
    // fd 1 is stdout
 }
@@ -236,7 +236,7 @@ the functions parameters enclosed by parentheses, and the function block itself,
 Any less-lang program needs a main function to allow it to be compiled and executed, e.g:
 ```go
 func print(str: string) {
-    syscall(1,1,str,50);
+    syscall(1,1,str.chars[0],str.len);
 }
 
 func main() {
