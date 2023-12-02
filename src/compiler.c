@@ -396,7 +396,7 @@ char* compile_value(compiler_T* c, ast_node_T* node, size_t reg_no) {
 
 		case T_STRING:
 			{
-				append_file(c->file, "    ; -- mov value ");
+				append_file(c->file, "    ; -- mov string ");
 				append_file(c->file, value->t->value);
 				append_file(c->file, "--\n");
 
@@ -410,11 +410,27 @@ char* compile_value(compiler_T* c, ast_node_T* node, size_t reg_no) {
 				symbol_type_T* type = (symbol_type_T*) value->type_sym;
 				char* reg = type->regs[reg_no];
 
-				size_t index = data_table_get_index(c->data_table, value->t->value);
-				append_file(c->file, "    mov ");
+				decode_escaped_characters(value->t->value);
 				char str[40];
-				snprintf(str, 40, "%s, %s const%zu\n", reg, type->operand, index);
+				snprintf(str, 40, "    mov %s, %s mem+%zu\n", reg, type->operand, c->mem_pointer);
 				append_file(c->file, str);
+				// initialize the length of the string literal
+				snprintf(str, 40, "    mov [%s], DWORD %lu\n", reg, strlen(value->t->value));
+				append_file(c->file, str);
+				snprintf(str, 40, "    add %s, 8\n", reg);
+				append_file(c->file, str);
+				// initialize the chars
+				for (size_t i = 0; i < strlen(value->t->value); i++) {
+					snprintf(str, 40, "    mov [%s], BYTE %d\n", reg, value->t->value[i]);
+					append_file(c->file, str);
+					snprintf(str, 40, "    add %s, 1\n", reg);
+					append_file(c->file, str);
+				}
+				snprintf(str, 40, "    mov %s, %s mem+%zu\n", reg, type->operand, c->mem_pointer);
+				append_file(c->file, str);
+
+				c->mem_pointer += strlen(value->t->value) + 8;
+
 				return reg;
 			}
 
@@ -645,10 +661,6 @@ void compile_dump(compiler_T* c, ast_node_T* node) {
 			log_error(dump->value->loc, 1, "Unexpected node in dump. Found: %s, expects: %s or %s.\n", ast_get_name(dump->value->type), ast_get_name(AST_BIN_OP), ast_get_name(AST_VALUE));
 	}
 
-	if (c->stack_pointer < 1) {
-		log_error(node->loc, 1, "Stack pointer to small for dump operation.\n");
-	}
-	
 	append_file(c->file, "\n    call  _dump\n");
 	c->stack_pointer -= 1;
 }
@@ -893,6 +905,7 @@ void compile_prop_init(compiler_T* c, ast_node_T* node, symbol_T* type, size_t b
 	char str[50];
 	snprintf(str, 50, "    mov %s [mem+%zu], %s\n",prop_type->operand, base + offset, reg);
 	append_file(c->file, str);
+	c->mem_pointer += prop_type->size;
 }
 
 // struct_init : ID LCURLY (attribute)* RCURLY ;
@@ -910,7 +923,7 @@ char* compile_struct_init(compiler_T* c, ast_node_T* node, size_t reg_no) {
 		compile_prop_init(c, structure->attributes[i], (symbol_T*)symbol, base_addr);
 	}
 
-	c->mem_pointer += symbol->size;
+	c->mem_pointer += symbol->size - (c->mem_pointer - base_addr);
 
 	char* reg = symbol->regs[reg_no];
 	char str[50];
