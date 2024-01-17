@@ -3,6 +3,7 @@
 #include "include/logger.h"
 #include "include/token.h"
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -74,6 +75,12 @@ token_T* read_ident(lexer_T* lexer, location_T* loc) {
 		return token_new(T_FUNC, value, loc);
 	} else if (strcmp("struct", value) == 0) {
 		return token_new(T_STRUCT, value, loc);
+	} else if (strcmp("return", value) == 0) {
+		return token_new(T_RETURN, value, loc);
+	} else if (strcmp("and", value) == 0) {
+		return token_new(T_BIT_AND, value, loc);
+	} else if (strcmp("or", value) == 0) {
+		return token_new(T_BIT_OR, value, loc);
 	}
 
 
@@ -214,12 +221,9 @@ token_T* lexer_next_token(lexer_T* lexer) {
 			return read_string(lexer, loc);
 		}
 
-		if (lexer->c == '&' && peek(lexer) != '&') {
+		if (lexer->c == '&' && (peek(lexer) != '&' && peek(lexer) != ' ')) {
 			return read_pointer(lexer, loc);
-		} else if (lexer->c == '&') {
-			advance(lexer);
-			return advance_with_token(lexer, T_AND, loc);
-		}
+		} 
 
 		if (isalpha(lexer->c) || lexer->c == '_') {
 			if (lexer->c == 'i' && peek(lexer) == 'f') {
@@ -234,6 +238,12 @@ token_T* lexer_next_token(lexer_T* lexer) {
 		}
 
 		switch (lexer->c) {
+			case '&':
+				if (peek(lexer) == '&') {
+					advance(lexer);
+					return advance_with_token(lexer, T_AND, loc);
+				} 
+
 			case '\'':
 				return read_char(lexer, loc);
 
@@ -334,11 +344,12 @@ token_T* lexer_next_token(lexer_T* lexer) {
 					if (peek(lexer) == '|') {
 						advance(lexer);
 						return advance_with_token(lexer, T_OR, loc);
-					}
+					} 
 				}
 		
 			default:
-				log_warning("Unexpected character when lexing: '%c' '%s'.\n", lexer->c, lexer->c);
+				log_warning(loc, "Unexpected character when lexing: '%p'.\n", lexer->c);
+				log_warning(loc, "Unexpected character when lexing: '%s' '%c'.\n", &lexer->c, lexer->c);
 				return token_new(T_EOF, "EOF", loc);
 		}
 	}

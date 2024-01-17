@@ -6,7 +6,7 @@
 
 void log_debug(unsigned char log, const char* format, ...);
 void log_info(const char* format, ...);
-void log_warning(const char* format, ...);
+void log_warning(location_T* loc, const char* format, ...);
 void log_todo(const char* format, ...);
 void log_error(location_T* loc, int exitcode, const char* format, ...);
 

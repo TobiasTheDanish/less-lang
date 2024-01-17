@@ -18,6 +18,7 @@ symbol_table_T* symbol_table_new(char* name, size_t level, symbol_table_T* paren
 }
 
 void symbol_table_init_builtins(symbol_table_T* table) {
+	symbol_table_put(table, symbol_new_type("bool", NULL, 1, NULL, 0));
 	symbol_table_put(table, symbol_new_type("i8", NULL, 1, NULL, 0));
 	symbol_table_put(table, symbol_new_type("i16", NULL, 2, NULL, 0));
 	symbol_table_put(table, symbol_new_type("i32", NULL, 4, NULL, 0));
@@ -31,7 +32,7 @@ void symbol_table_init_builtins(symbol_table_T* table) {
 	str_type->prop_count = 2;
 	str_type->props = malloc(sizeof(symbol_T)*2);
 	str_type->props[0] = symbol_new_prop("len", 0, symbol_table_get(table, "i32"), NULL);
-	str_type->props[1] = symbol_new_prop("chars", 0, symbol_table_get(table, "array"), symbol_table_get(table, "i8"));
+	str_type->props[1] = symbol_new_prop("chars", 8, symbol_table_get(table, "array"), symbol_table_get(table, "i8"));
 	symbol_table_put(table, (symbol_T*)str_type);
 }
 

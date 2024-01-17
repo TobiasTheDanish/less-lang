@@ -42,18 +42,6 @@ ast_node_T* ast_new_expr(ast_node_T* child) {
 	return (ast_node_T*) expr;
 }
 
-ast_node_T* ast_new_array_expr(ast_node_T* array_element, ast_node_T* op, ast_node_T* rhs) {
-	ast_node_T* base = ast_new(AST_ARRAY_EXPR, array_element->loc);
-
-	ast_array_expr_T* expr = malloc(sizeof(ast_array_expr_T));
-	expr->base = *base;
-	expr->array_element = array_element;
-	expr->op = op;
-	expr->rhs = rhs;
-
-	return (ast_node_T*) expr;
-}
-
 ast_node_T* ast_new_syscall(ast_node_T** params, size_t count) {
 	ast_node_T* base = ast_new(AST_SYSCALL, NULL);
 
@@ -184,6 +172,16 @@ ast_node_T* ast_new_else(size_t index, ast_node_T* block){
 	return (ast_node_T*) elze;
 }
 
+ast_node_T* ast_new_return(ast_node_T* ret_val) {
+	ast_node_T* base = ast_new(AST_RETURN, ret_val->loc);
+
+	ast_return_T* ret = malloc(sizeof(ast_return_T));
+	ret->base = *base;
+	ret->ret_val = ret_val;
+
+	return (ast_node_T*)ret;
+}
+
 ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, ast_node_T* logical, ast_node_T* conditional) {
 	ast_node_T* base = ast_new(AST_CONDITIONAL, NULL);
 
@@ -299,7 +297,6 @@ char* ast_get_name(ast_node_E type) {
 		"Program",
 		"Block", 
 		"Expression", 
-		"Array expression", 
 		"Syscall", 
 		"Variable declaration", 
 		"Constant declaration", 

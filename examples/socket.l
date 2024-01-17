@@ -1,6 +1,13 @@
 const AF_INET = 2;
 const SOCK_STREAM = 1;
 const INADDR_ANY = 0;
+const SOL_SOCKET = 1;
+const SO_REUSEADDR = 2;
+const SO_REUSEPORT = 15;
+
+struct SocketOptions {
+	opt: i32;
+}
 
 struct ClientSize {
 	size: i32;
@@ -25,6 +32,22 @@ struct SocketAddressIn {
 	addr: i32;
 }
 
+struct HttpRequest {
+	method: string;
+	path: string;
+	protocol: string;
+}
+
+struct StringReader {
+	i: i32;
+	str: i8[];
+}
+
+func add(str: string, ch: i8) {
+	&str.chars[str.len] = ch;
+	str.len = str.len + 1;
+}
+
 func print(str: string) {
 	syscall(1, 1, str.chars[0], str.len);
 }
@@ -44,16 +67,64 @@ func send(sockfd: i32, buf: string, flags: i32) {
 	//print("Message sent to client\n");
 }
 
-func read(sockfd: i32, buf: array, bufSize: i32) {
-	let bytesRead = syscall(0, sockfd, buf, bufSize-1);
+func isNotWhiteSpace(char: i8): bool {
+	let res = char != '\r' && char != ' ' && char != '\n';
+	return res;
+}
+
+func isWhiteSpace(char: i8): bool {
+	let res = char == '\r' || char == ' ' || char == '\n';
+	return res;
+}
+
+func skipWhiteSpace(reader: StringReader) {
+	while reader.str[reader.i].isWhiteSpace() {
+		reader.i = reader.i + 1;
+	}
+}
+
+func readWord(reader: StringReader): string {
+	let res = "";
+	while reader.str[reader.i].isNotWhiteSpace() {
+		res.add(reader.str[reader.i]);
+		reader.i = reader.i + 1;
+	}
+
+	return res;
+}
+
+func parseHttpRequest(request: i8[]): HttpRequest {
+	let reader = StringReader { i: 0, str: request };
+
+	let method = readWord(reader);
+	skipWhiteSpace(reader);
+
+	let path = readWord(reader);
+	skipWhiteSpace(reader);
+
+	let protocol = readWord(reader);
+
+	print(method);
+	print(path);
+	print(protocol);
+
+	let req = HttpRequest { method: method, path: path, protocol: protocol };
+
+	return req;
+}
+
+func read(sockfd: i32, buf: array, bufSize: i32): HttpRequest {
+	let bytesRead = syscall(0, sockfd, buf[0], bufSize-1);
 
 	if bytesRead < 0 {
 		print("Read failed.\n");
 		syscall(60, 1);
 	}
 
-	print("CLIENT: ");
-	syscall(1, 1, buf, bytesRead);
+	buf.len = bytesRead;
+	let req = parseHttpRequest(buf);
+
+	return req;
 }
 
 func accept(client: ClientSocket, sock: i32, addr: SocketAddressIn) {
@@ -90,6 +161,17 @@ func bind(sockfd: i32, addr: SocketAddressIn) {
 	}
 }
 
+func setSocketOptions(sockfd: i32) {
+	print("setSocketOptions\n");
+	let opt = SocketOptions { opt: 1 } ;
+	let err = syscall(54, sockfd, SOL_SOCKET, SO_REUSEADDR or SO_REUSEPORT, &opt.opt, 4);
+
+	if err < 0 {
+		print("setSocketOptions failed.\n");
+		syscall(60,1);
+	}
+}
+
 func openSocket(socket: Socket) {
 	print("Open socket\n");
 	let res = syscall(41, socket.domain, socket.type, socket.protocol);
@@ -107,6 +189,8 @@ func main() {
 
 	openSocket(socket);
 
+	setSocketOptions(socket.sockfd);
+
 	let address = SocketAddressIn { family: AF_INET, port: 36895, addr: INADDR_ANY };
 	bind(socket.sockfd, address);
 
@@ -116,7 +200,7 @@ func main() {
 	let client = ClientSocket { sockfd: 0, addrSize: clientAddrSize };
 	let clientAddress = SocketAddressIn { family: 2, port: 36895, addr: 0 };
 	while 1 == 1 {
-		let buf = i8[1024];
+		let buf = i8[2048];
 		let mut i: i32 = 0;
 		while i < buf.len {
 			buf[i] = 0;
@@ -125,9 +209,10 @@ func main() {
 
 		accept(client, socket.sockfd, clientAddress);
 
-		read(client.sockfd, buf, buf.len);
+		let req = read(client.sockfd, buf, buf.len);
 
-		send(client.sockfd, "SERVER: Message recieved, closing connection.\n", 0);
+		send(client.sockfd, req.protocol, 0);
+		send(client.sockfd, " 200\r\n", 0);
 
 		closeSocket(client.sockfd);
 	}

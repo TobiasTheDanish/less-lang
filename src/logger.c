@@ -79,7 +79,10 @@ void log_info(const char* format, ...) {
 	va_end(args);
 }
 
-void log_warning(const char* format, ...) {
+void log_warning(location_T* loc, const char* format, ...) {
+	if (loc != NULL) {
+		printf("%s:%lu:%lu ", loc->filePath, loc->row, loc->col);
+	}
 	printf("[WARN]: ");
 
 	va_list args;
@@ -102,6 +105,9 @@ void log_warning(const char* format, ...) {
             } else if (*format == 'u') {
                 unsigned int num = va_arg(args, unsigned int);
                 printf("%u", num);
+            } else if (*format == 'p') {
+                void* ptr = va_arg(args, void*);
+                printf("%p", ptr);
             } else {
                 putchar('%'); // Print the '%' character
                 putchar(*format); // Print the character immediately following '%'

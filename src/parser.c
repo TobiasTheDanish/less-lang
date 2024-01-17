@@ -15,7 +15,6 @@
 
 ast_node_T* func_call(parser_T* parser, ast_node_T* arg1);
 ast_node_T* syscall(parser_T* parser);
-ast_node_T* array_expr(parser_T* parser);
 ast_node_T* expr(parser_T* parser);
 ast_node_T* if_block(parser_T* parser);
 ast_node_T* array_element(parser_T* parser);
@@ -208,6 +207,14 @@ ast_node_T* op(parser_T* parser) {
 			res = ast_new_op(token);
 			consume(parser, T_MODULUS);
 			break;
+		case T_BIT_AND:
+			res = ast_new_op(token);
+			consume(parser, T_BIT_AND);
+			break;
+		case T_BIT_OR:
+			res = ast_new_op(token);
+			consume(parser, T_BIT_OR);
+			break;
 
 		default:
 			log_error(token->loc, 1, "Invalid token type for op. Found: %s.\n", token_get_name(token->type));
@@ -234,6 +241,7 @@ ast_node_T* bin_op(parser_T* parser, ast_node_T* lhs) {
 		ast_value_T* v = (ast_value_T*) lhs;
 		lhs_type = (symbol_type_T*)v->type_sym;
 	}
+
 	ast_node_T* operation = op(parser);
 
 	ast_node_T* rhs;
@@ -241,7 +249,7 @@ ast_node_T* bin_op(parser_T* parser, ast_node_T* lhs) {
 	current = parser->tokens[parser->t_index];
 	token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
 
-	if ((current->type == T_INTEGER || current->type == T_IDENT) && next->type == T_LSQUARE) {
+	if (current->type == T_IDENT && next->type == T_LSQUARE) {
 		rhs = array_element(parser);
 		ast_array_element_T* v = (ast_array_element_T*) rhs;
 		symbol_var_T* elem_sym = (symbol_var_T*) symbol_table_get(parser->s_table, v->ident->value);
@@ -254,7 +262,7 @@ ast_node_T* bin_op(parser_T* parser, ast_node_T* lhs) {
 			log_error(current->loc, 1, "Mismatched types for bin op. Found: '%s' and '%s'\n", lhs_type->base.name, elem_sym->elem_type->name);
 		}
 		*/
-	} else if ((current->type == T_INTEGER || current->type == T_IDENT) && next->type == T_DOT) {
+	} else if (current->type == T_IDENT && next->type == T_DOT) {
 		rhs = prop(parser);
 		ast_prop_T* v = (ast_prop_T*) rhs;
 		symbol_var_T* prop_sym = (symbol_var_T*) symbol_table_get(parser->s_table, v->parent_sym->name);
@@ -404,40 +412,47 @@ ast_node_T* logical_op(parser_T* parser) {
 }
 
 // conditional : (array_element | value | bin_op | prop) cond_op (value | bin_op | prop | array_element) (logical_op conditional)* ;
-ast_node_T* conditional(parser_T* parser) {
-	ast_node_T* lhs;
-	token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
-	if (next->type == T_DOT) {
-		lhs = prop(parser);
-	} else if (next->type == T_LSQUARE) {
-		lhs = array_element(parser);
-	} else {
-		lhs = value(parser);
+ast_node_T* conditional(parser_T* parser, ast_node_T* lhs) {
+	if (lhs == NULL) {
+		token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
+		if (next->type == T_DOT) {
+			lhs = prop(parser);
+		} else if (next->type == T_LSQUARE) {
+			lhs = array_element(parser);
+		} else {
+			lhs = value(parser);
+		}
 	}
 
 	if (token_is_op(parser->tokens[parser->t_index])) {
 		lhs = bin_op(parser, lhs);
+	} else if (parser->tokens[parser->t_index]->type == T_DOT) {
+		consume(parser, T_DOT);
+		lhs = func_call(parser, lhs);
 	}
 
-	ast_node_T* operation = cond_op(parser);
-	ast_node_T* rhs;
-	next = parser->tokens[(parser->t_index + 1) % parser->t_count];
-	if (next->type == T_DOT) {
-		rhs = prop(parser);
-	} else if (next->type == T_LSQUARE) {
-		rhs = array_element(parser);
-	} else {
-		rhs = value(parser);
-	}
+	ast_node_T* rhs = NULL;
+	ast_node_T* operation = NULL;
+	if (token_is_cond_op(parser->tokens[parser->t_index])) {
+		operation = cond_op(parser);
+		token_T* next = parser->tokens[(parser->t_index + 1) % parser->t_count];
+		if (next->type == T_DOT) {
+			rhs = prop(parser);
+		} else if (next->type == T_LSQUARE) {
+			rhs = array_element(parser);
+		} else {
+			rhs = value(parser);
+		}
 
-	if (token_is_op(parser->tokens[parser->t_index])) {
-		rhs = bin_op(parser, rhs);
+		if (token_is_op(parser->tokens[parser->t_index])) {
+			rhs = bin_op(parser, rhs);
+		}
 	}
 	
-	next = parser->tokens[parser->t_index];
+	token_T* next = parser->tokens[parser->t_index];
 	if (token_is_logical(next)) {
 		ast_node_T* logical = logical_op(parser);
-		ast_node_T* c = conditional(parser);
+		ast_node_T* c = conditional(parser, NULL);
 
 		return ast_new_cond(lhs, operation, rhs, logical, c);
 	}
@@ -492,7 +507,7 @@ ast_node_T* else_block(parser_T* parser, size_t index) {
 ast_node_T* while_block(parser_T* parser) {
 	size_t index = ++parser->if_count;
 	consume(parser, T_WHILE);
-	ast_node_T* cond = conditional(parser);
+	ast_node_T* cond = conditional(parser, NULL);
 	ast_node_T* b = block(parser);
 
 	return ast_new_while(index, cond, b);
@@ -502,7 +517,7 @@ ast_node_T* while_block(parser_T* parser) {
 ast_node_T* if_block(parser_T* parser) {
 	size_t index = parser->if_count++;
 	consume(parser, T_IF);
-	ast_node_T* cond = conditional(parser);
+	ast_node_T* cond = conditional(parser, NULL);
 	ast_node_T* b = block(parser);
 	ast_node_T* elze = NULL;
 
@@ -752,6 +767,11 @@ ast_node_T* assign(parser_T* parser, ast_node_T* lhs) {
 			ast_bin_op_T* val = (ast_bin_op_T*) v;
 			symbol->type = val->type_sym;
 		}
+	} else if (token_is_cond_op(parser->tokens[parser->t_index])) {
+		v = conditional(parser, v);
+		if (symbol && symbol->type == NULL && !symbol->is_assigned) {
+			symbol->type = symbol_table_get(parser->s_table, "bool");
+		}
 	}
 
 	if (symbol) symbol->is_assigned = 1;
@@ -828,7 +848,7 @@ ast_node_T* sys_arg(parser_T* parser) {
 			node = array_element(parser);
 		} else if (next->type == T_DOT) {
 			node = prop(parser);
-		}else {
+		} else {
 			node = value(parser);
 		}
 
@@ -1051,42 +1071,6 @@ ast_node_T* func_call(parser_T* parser, ast_node_T* arg1) {
 	return ast_new_func_call(ident, params, count);
 }
 
-/*
-// array_expr : array_element ( SEMI | ((ASSIGN | op) (array_expr | value | bin_op | array))) ;
-ast_node_T* array_expr(parser_T* parser) {
-	log_debug(parser->debug, "parse array expr\n");
-	ast_node_T* elem = array_element(parser);
-
-	token_T* t = parser->tokens[parser->t_index];
-	ast_node_T* operation;
-	if (t->type == T_SEMI) {
-		return elem;
-	} else if (token_is_op(t)) {
-		operation = op(parser);
-	} else {
-		operation = NULL;
-		consume(parser);
-	}
-
-	token_T* next = parser->tokens[(parser->t_index+1)%parser->t_count];
-	ast_node_T* rhs;
-	if (token_is_op(next)) {
-		//rhs = bin_op(parser);
-	} else if (next->type == T_LSQUARE) {
-		symbol_T* s = symbol_table_get(parser->s_table, parser->tokens[parser->t_index]->value);
-		if (s->type == SYM_VAR_TYPE) {
-			rhs = array(parser);
-		} else {
-			rhs = array_expr(parser);
-		}
-	} else {
-		rhs = value(parser);
-	}
-
-	return ast_new_array_expr(elem, operation, rhs);
-}
-*/
-
 // attribute : ID type_annotation SEMI ;
 symbol_T* decl_attribute(parser_T* parser, size_t offset) {
 
@@ -1138,13 +1122,30 @@ void struct_decl(parser_T* parser) {
 	symbol_table_put(parser->s_table, type);
 }
 
-// expr : syscall SEMI | if | while | var_decl | const_decl | array_expr SEMI | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
+// return : RETURN (expr)? SEMI ;
+ast_node_T* p_return(parser_T* parser) {
+	consume(parser, T_RETURN);
+	ast_node_T* ret_val = NULL;
+	if (parser->tokens[parser->t_index]->type != T_SEMI) {
+		ret_val = expr(parser);
+	}
+	if (parser->tokens[parser->t_index]->type == T_SEMI) {
+		consume(parser, T_SEMI);
+	}
+
+	return ast_new_return(ret_val);
+}
+
+// expr : return | syscall SEMI | if | while | var_decl | const_decl | assign SEMI | bin_op SEMI | dump SEMI | func_decl | func_call SEMI ;
 ast_node_T* expr(parser_T* parser) {
 	token_T* token = parser->tokens[parser->t_index];
 	ast_node_T* child;
 
 	while (1) {
 		switch (token->type) {
+			case T_RETURN:
+				child = p_return(parser);
+				break;
 			case T_SYSCALL:
 				child = syscall(parser);
 				consume(parser, T_SEMI);
@@ -1201,8 +1202,11 @@ ast_node_T* expr(parser_T* parser) {
 					if (next->type == T_ASSIGN) {
 						child = assign(parser, lhs);
 						consume(parser, T_SEMI);
-					} else {
+					} else if (token_is_op(next)) {
 						child = bin_op(parser, lhs);
+						consume(parser, T_SEMI);
+					} else if (token_is_cond_op(next)) {
+						child = conditional(parser, lhs);
 						consume(parser, T_SEMI);
 					}
 					break;

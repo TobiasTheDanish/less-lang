@@ -8,7 +8,6 @@ typedef enum AST_NODE_E {
 	AST_PROGRAM,
 	AST_BLOCK,
 	AST_EXPR,
-	AST_ARRAY_EXPR,
 	AST_SYSCALL,
 	AST_VAR_DECL,
 	AST_CONST_DECL,
@@ -20,6 +19,7 @@ typedef enum AST_NODE_E {
 	AST_WHILE,
 	AST_IF,
 	AST_ELSE,
+	AST_RETURN,
 	AST_CONDITIONAL,
 	AST_COND_OP,
 	AST_LOGICAL_OP,
@@ -136,6 +136,11 @@ typedef struct AST_NODE_ELSE {
 	ast_node_T* block;
 } ast_else_T;
 
+typedef struct AST_NODE_RETURN {
+	ast_node_T base;
+	ast_node_T* ret_val;
+} ast_return_T;
+
 typedef struct AST_NODE_CONDITIONAL {
 	ast_node_T base;
 	ast_node_T* lhs;
@@ -216,6 +221,7 @@ ast_node_T* ast_new_assign(token_T* ident,ast_node_T* lhs, ast_node_T* value);
 ast_node_T* ast_new_while(size_t index, ast_node_T* cond, ast_node_T* block);
 ast_node_T* ast_new_if(size_t index, ast_node_T* cond, ast_node_T* block, ast_node_T* elze);
 ast_node_T* ast_new_else(size_t index, ast_node_T* block);
+ast_node_T* ast_new_return(ast_node_T* ret_val);
 ast_node_T* ast_new_cond(ast_node_T* lhs, ast_node_T* op, ast_node_T* rhs, ast_node_T* logical, ast_node_T* cond);
 ast_node_T* ast_new_cond_op(token_T* t);
 ast_node_T* ast_new_logical_op(token_T* t);

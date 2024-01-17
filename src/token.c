@@ -10,6 +10,8 @@ char* token_names[] = {
 	"Multiply",
 	"Divide",
 	"Modulus",
+	"Bitwise and",
+	"Bitwise or",
 	"And",
 	"Or",
 	"Equals",
@@ -37,6 +39,7 @@ char* token_names[] = {
 	"While",
 	"If",
 	"Else",
+	"Return",
 	"Syscall",
 	"Dump",
 	"EOF"
@@ -57,7 +60,11 @@ char* token_get_name(token_E type) {
 }
 
 bool token_is_op(token_T* token) {
-	return token->type == T_PLUS || token->type == T_MINUS || token->type == T_MULTIPLY || token->type == T_DIVIDE || token->type == T_MODULUS;
+	return token->type == T_PLUS || token->type == T_MINUS || token->type == T_MULTIPLY || token->type == T_DIVIDE || token->type == T_MODULUS || token->type == T_BIT_AND  || token->type == T_BIT_OR;
+}
+
+bool token_is_cond_op(token_T* token) {
+	return token->type == T_NOT_EQUALS || token->type == T_EQUALS || token->type == T_LESS || token->type == T_GREATER;
 }
 
 bool token_is_logical(token_T* token) {
