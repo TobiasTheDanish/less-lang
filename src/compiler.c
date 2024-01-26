@@ -630,6 +630,7 @@ char *compile_array_element(compiler_T *c, ast_node_T *node, size_t reg_no,
 
 // array : ID LSQUARE INTEGER RSQUARE ;
 char *compile_array(compiler_T *c, ast_node_T *node, size_t reg_no) {
+  log_todo("Implement mem allocator compile_array()\n");
   log_debug(c->debug, "compile array\n");
   ast_array_T *arr = (ast_array_T *)node;
   symbol_type_T *elem_type = (symbol_type_T *)arr->elem_type;
@@ -905,7 +906,7 @@ void compile_if(compiler_T *c, ast_node_T *node) {
 
 // attribute : ID ASSIGN (value | array_element | prop | bin_op | array) COMMA?
 void compile_prop_init(compiler_T *c, ast_node_T *node, symbol_T *type,
-                       size_t base) {
+                       const char *mem_reg) {
   ast_attribute_T *attr = (ast_attribute_T *)node;
 
   size_t offset = symbol_get_prop_offset(type, attr->name->value);
@@ -943,8 +944,8 @@ void compile_prop_init(compiler_T *c, ast_node_T *node, symbol_T *type,
   }
 
   char str[50];
-  snprintf(str, 50, "    mov %s [mem+%zu], %s\n", prop_type->operand,
-           base + offset, reg);
+  snprintf(str, 50, "    mov %s [%s+%zu], %s\n", prop_type->operand, mem_reg,
+           offset, reg);
   append_file(c->file, str);
   c->mem_pointer += prop_type->size;
 }
@@ -959,18 +960,18 @@ char *compile_struct_init(compiler_T *c, ast_node_T *node, size_t reg_no) {
   append_file(c->file, structure->struct_name);
   append_file(c->file, " --\n");
 
-  size_t base_addr = c->mem_pointer;
+  char str[50];
+  snprintf(str, 35, "    mov rdi, %zu\n", symbol->size);
+  append_file(c->file, str);
+  append_file(c->file, "    call _alloc\n");
 
   for (size_t i = 0; i < structure->attr_count; i++) {
     compile_prop_init(c, structure->attributes[i], (symbol_T *)symbol,
-                      base_addr);
+                      regs_64bit[6]);
   }
 
-  c->mem_pointer += symbol->size - (c->mem_pointer - base_addr);
-
   char *reg = symbol->regs[reg_no];
-  char str[50];
-  snprintf(str, 50, "    mov %s, mem+%zu\n", reg, base_addr);
+  snprintf(str, 50, "    mov %s, %s\n", reg, regs_64bit[6]);
   append_file(c->file, str);
 
   return reg;
@@ -1444,6 +1445,7 @@ void compile_program(compiler_T *c, ast_node_T *node) {
 
 void compile(compiler_T *c) {
   append_file(c->file, "BITS 64\n");
+  append_file(c->file, "EXTERN _alloc\n");
   append_file(c->file, "global _start\n");
   // append_file(c->file, "extern alloc, free\n");
   append_file(c->file, "section .text\n");
