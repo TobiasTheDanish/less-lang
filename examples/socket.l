@@ -56,7 +56,7 @@ func read(sockfd: i32, buf: array, bufSize: i32) {
 	syscall(1, 1, buf, bytesRead);
 }
 
-func accept(client: ClientSocket, sock: i32, addr: SocketAddressIn) {
+func accept(mut client: ClientSocket, sock: i32, addr: SocketAddressIn) {
 	print("Accepting:\n");
 	let res = syscall(43, sock, addr, client.addrSize);
 
@@ -90,7 +90,7 @@ func bind(sockfd: i32, addr: SocketAddressIn) {
 	}
 }
 
-func openSocket(socket: Socket) {
+func openSocket(mut socket: Socket) {
 	print("Open socket\n");
 	let res = syscall(41, socket.domain, socket.type, socket.protocol);
 
@@ -113,7 +113,7 @@ func main() {
 	listen(socket.sockfd, socket.backlog);
 
 	let clientAddrSize = ClientSize { size: 16 };
-	let client = ClientSocket { sockfd: 0, addrSize: clientAddrSize };
+	let clientSock = ClientSocket { sockfd: 0, addrSize: clientAddrSize };
 	let clientAddress = SocketAddressIn { family: 2, port: 36895, addr: 0 };
 	while 1 == 1 {
 		let buf = i8[1024];
@@ -123,12 +123,12 @@ func main() {
 			i = i + 1;
 		}
 
-		accept(client, socket.sockfd, clientAddress);
+		accept(clientSock, socket.sockfd, clientAddress);
 
-		read(client.sockfd, buf, buf.len);
+		read(clientSock.sockfd, buf, buf.len);
 
-		send(client.sockfd, "SERVER: Message recieved, closing connection.\n", 0);
+		send(clientSock.sockfd, "SERVER: Message recieved, closing connection.\n", 0);
 
-		closeSocket(client.sockfd);
+		closeSocket(clientSock.sockfd);
 	}
 }
