@@ -20,7 +20,7 @@ func print(str: string) {
 	syscall(1, 1, str.chars[0], str.len);
 }
 
-func openSocket(socket: Socket) {
+func openSocket(mut socket: Socket) {
 	print("Open socket\n");
 	let res = syscall(41, socket.domain, socket.type, socket.protocol);
 
