@@ -323,7 +323,7 @@ char *compile_value(compiler_T *c, ast_node_T *node, size_t reg_no) {
   }
 
   case T_IDENT: {
-    append_file(c->file, "    ; -- mov value ");
+    append_file(c->file, "    ; -- mov ident ");
     append_file(c->file, value->t->value);
     append_file(c->file, "--\n");
 
@@ -410,6 +410,20 @@ char *compile_value(compiler_T *c, ast_node_T *node, size_t reg_no) {
     append_file(c->file, value->t->value);
     append_file(c->file, "--\n");
 
+    symbol_type_T *type = (symbol_type_T *)value->type_sym;
+    char *reg = type->regs[reg_no];
+    append_file(c->file, "     xor rdi, rdi\n");
+    char str[40];
+    snprintf(str, 40, "    mov rdi, DWORD %lu\n", strlen(value->t->value));
+    append_file(c->file, str);
+    append_file(c->file, "     call _alloc\n");
+    char *mem_reg = "rax";
+
+    if (strcmp(reg, mem_reg) == 0) {
+      append_file(c->file, "     mov r8, rax\n");
+      mem_reg = "r8";
+    }
+
     char *reg_64 = regs_64bit[reg_no];
     append_file(c->file, "    xor ");
     append_file(c->file, reg_64);
@@ -417,13 +431,8 @@ char *compile_value(compiler_T *c, ast_node_T *node, size_t reg_no) {
     append_file(c->file, reg_64);
     append_file(c->file, "\n");
 
-    symbol_type_T *type = (symbol_type_T *)value->type_sym;
-    char *reg = type->regs[reg_no];
-
     decode_escaped_characters(value->t->value);
-    char str[40];
-    snprintf(str, 40, "    mov %s, %s mem+%zu\n", reg, type->operand,
-             c->mem_pointer);
+    snprintf(str, 40, "    mov %s, %s %s\n", reg, type->operand, mem_reg);
     append_file(c->file, str);
     // initialize the length of the string literal
     snprintf(str, 40, "    mov [%s], DWORD %lu\n", reg,
@@ -438,11 +447,10 @@ char *compile_value(compiler_T *c, ast_node_T *node, size_t reg_no) {
       snprintf(str, 40, "    add %s, 1\n", reg);
       append_file(c->file, str);
     }
-    snprintf(str, 40, "    mov %s, %s mem+%zu\n", reg, type->operand,
-             c->mem_pointer);
+    snprintf(str, 40, "    mov %s, %s %s\n", reg, type->operand, mem_reg);
     append_file(c->file, str);
 
-    c->mem_pointer += strlen(value->t->value) + 8;
+    // c->mem_pointer += strlen(value->t->value) + 8;
 
     return reg;
   }
@@ -630,7 +638,6 @@ char *compile_array_element(compiler_T *c, ast_node_T *node, size_t reg_no,
 
 // array : ID LSQUARE INTEGER RSQUARE ;
 char *compile_array(compiler_T *c, ast_node_T *node, size_t reg_no) {
-  log_todo("Implement mem allocator compile_array()\n");
   log_debug(c->debug, "compile array\n");
   ast_array_T *arr = (ast_array_T *)node;
   symbol_type_T *elem_type = (symbol_type_T *)arr->elem_type;
@@ -638,10 +645,13 @@ char *compile_array(compiler_T *c, ast_node_T *node, size_t reg_no) {
   char *reg = regs_64bit[reg_no];
   append_file(c->file, "    ; -- init array --\n");
   char str[50];
-  snprintf(str, 50, "    mov QWORD [mem+%zu], %s\n", (c->mem_pointer),
-           arr->len->value);
+  snprintf(str, 50, "    mov rdi, %zu\n",
+           (atoi(arr->len->value) * elem_type->size) + 8);
   append_file(c->file, str);
-  snprintf(str, 50, "    mov %s, mem+%zu\n", reg, c->mem_pointer);
+  append_file(c->file, "    call _alloc\n");
+  snprintf(str, 50, "    mov QWORD [rax], %s\n", arr->len->value);
+  append_file(c->file, str);
+  snprintf(str, 50, "    mov %s, rax\n", reg);
   append_file(c->file, str);
 
   c->mem_pointer += (atoi(arr->len->value) * elem_type->size) + 8;
@@ -913,6 +923,10 @@ void compile_prop_init(compiler_T *c, ast_node_T *node, symbol_T *type,
   symbol_type_T *prop_type =
       (symbol_type_T *)symbol_get_prop_type(type, attr->name->value);
 
+  char str[50];
+  snprintf(str, 50, "    push %s\n", mem_reg);
+  append_file(c->file, str);
+
   char *reg = prop_type->regs[0];
   if (attr->value->type == AST_PROP) {
     compile_prop(c, attr->value, 0);
@@ -924,7 +938,6 @@ void compile_prop_init(compiler_T *c, ast_node_T *node, symbol_T *type,
 
     char *end = ((symbol_type_T *)arr_sym->elem_type)->regs[0];
     char *temp = regs_64bit[6];
-    char str[50];
     snprintf(str, 50, "    mov %s, %s\n", temp, reg);
     append_file(c->file, str);
     snprintf(str, 50, "    xor %s, %s\n", reg, reg);
@@ -942,8 +955,9 @@ void compile_prop_init(compiler_T *c, ast_node_T *node, symbol_T *type,
               "Unexpected node type as prop initialization, found '%s'.\n",
               ast_get_name(attr->value->type));
   }
+  snprintf(str, 50, "    pop %s\n", mem_reg);
+  append_file(c->file, str);
 
-  char str[50];
   snprintf(str, 50, "    mov %s [%s+%zu], %s\n", prop_type->operand, mem_reg,
            offset, reg);
   append_file(c->file, str);
@@ -961,7 +975,7 @@ char *compile_struct_init(compiler_T *c, ast_node_T *node, size_t reg_no) {
   append_file(c->file, " --\n");
 
   char str[50];
-  snprintf(str, 35, "    mov rdi, %zu\n", symbol->size);
+  snprintf(str, 50, "    mov rdi, %zu\n", symbol->size);
   append_file(c->file, str);
   append_file(c->file, "    call _alloc\n");
 
@@ -1500,32 +1514,29 @@ void compile(compiler_T *c) {
   for (size_t i = 0; i < c->data_table->count; i++) {
     data_const_T *data = c->data_table->data[i];
 
+    char s[40];
     if (strcmp(data->type, "string") == 0) {
-      char s[25];
-      snprintf(s, 25, "    const%zu: db ", i);
+      snprintf(s, 40, "    const%zu: db ", i);
       append_file(c->file, s);
       decode_escaped_characters(data->t->value);
       for (int j = 0; data->t->value[j] != '\0'; j++) {
-        char ch[6];
-        snprintf(ch, 6, "%d, ", data->t->value[j]);
+        char ch[10];
+        snprintf(ch, 10, "%d, ", data->t->value[j]);
         append_file(c->file, ch);
       }
       append_file(c->file, "0\n");
     } else if (strcmp(data->type, "i32") == 0) {
-      char s[25];
-      snprintf(s, 25, "    const%zu: dq ", i);
+      snprintf(s, 40, "    const%zu: dq ", i);
       append_file(c->file, s);
       append_file(c->file, data->t->value);
       append_file(c->file, "\n");
     } else if (strcmp(data->type, "i16") == 0) {
-      char s[25];
-      snprintf(s, 25, "    const%zu: dq ", i);
+      snprintf(s, 40, "    const%zu: dq ", i);
       append_file(c->file, s);
       append_file(c->file, data->t->value);
       append_file(c->file, "\n");
     } else if (strcmp(data->type, "i8") == 0) {
-      char s[25];
-      snprintf(s, 25, "    const%zu: dq ", i);
+      snprintf(s, 40, "    const%zu: dq ", i);
       append_file(c->file, s);
       append_file(c->file, data->t->value);
       append_file(c->file, "\n");
