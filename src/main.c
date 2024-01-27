@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
   log_info("Asembling finished\n");
 
   log_info("Linking\n");
-  snprintf(cmd, 220, "ld -g -o %s %s.o -Llib -lgc -lc", args->out_path,
+  snprintf(cmd, 220, "ld -static -g -o %s %s.o -Llib -lgc", args->out_path,
            args->out_path);
   call_cmd(cmd);
   log_info("Linking finished\n");
