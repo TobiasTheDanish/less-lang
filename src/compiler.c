@@ -1097,7 +1097,8 @@ void compile_assign(compiler_T *c, ast_node_T *node) {
       append_file(c->file, str);
     } else if (a->lhs->type == AST_VALUE) {
       symbol_type_T *var_type = (symbol_type_T *)var_sym->type;
-      char *sized_reg = match_reg_to_type(var_type->size, reg);
+      char *sized_reg =
+          var_type->is_primitive ? match_reg_to_type(var_type->size, reg) : reg;
       append_file(c->file, "    mov ");
       append_file(c->file, var_type->operand);
       append_file(c->file, " [rbp+");
