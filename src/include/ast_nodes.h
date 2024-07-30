@@ -8,11 +8,14 @@ typedef enum AST_NODE_E {
   AST_PROGRAM,
   AST_BLOCK,
   AST_EXPR,
-  AST_ARRAY_EXPR,
   AST_SYSCALL,
+  AST_DECL,
+  AST_TYPE_ANNOT,
   AST_VAR_DECL,
   AST_CONST_DECL,
   AST_FUNC_DECL,
+  AST_FUNC_PARAM_LIST,
+  AST_FUNC_PARAM,
   AST_FUNC_CALL,
   AST_STRUCT_INIT,
   AST_ATTRIBUTE,
@@ -55,13 +58,6 @@ typedef struct AST_NODE_EXPR {
   ast_node_T *child;
 } ast_expr_T;
 
-typedef struct AST_NODE_ARRAY_EXPR {
-  ast_node_T base;
-  ast_node_T *array_element;
-  ast_node_T *op;
-  ast_node_T *rhs;
-} ast_array_expr_T;
-
 typedef struct AST_NODE_SYSCALL {
   ast_node_T base;
   ast_node_T **params;
@@ -87,7 +83,7 @@ typedef struct AST_NODE_STRUCT_INIT {
   ast_node_T base;
   ast_node_T **attributes;
   size_t attr_count;
-  char *struct_name;
+  token_T *ident;
 } ast_struct_init_T;
 
 typedef struct AST_NODE_ATTRIBUTE {
@@ -95,6 +91,33 @@ typedef struct AST_NODE_ATTRIBUTE {
   token_T *name;
   ast_node_T *value;
 } ast_attribute_T;
+
+typedef struct AST_NODE_DECL {
+  ast_node_T base;
+  token_T *token;
+  ast_node_T **children;
+  size_t child_count;
+} ast_decl_T;
+
+typedef struct AST_NODE_FUNC_PARAM_LIST {
+  ast_node_T base;
+  ast_node_T **children;
+  size_t child_count;
+} ast_param_list_T;
+
+typedef struct AST_NODE_FUNC_PARAM {
+  ast_node_T base;
+  ast_node_T *ident;
+  ast_node_T *type_annot;
+  unsigned char is_mut;
+} ast_func_param_T;
+
+typedef struct AST_NODE_TYPE_ANNOT {
+  ast_node_T base;
+  token_T *token;
+  ast_node_T *type;
+  unsigned char is_array;
+} ast_type_annot_T;
 
 typedef struct AST_NODE_VAR_DECL {
   ast_node_T base;
@@ -181,9 +204,8 @@ typedef struct AST_NODE_VALUE {
 
 typedef struct AST_NODE_ARRAY {
   ast_node_T base;
-  symbol_T *type;
-  symbol_T *elem_type;
-  token_T *len;
+  ast_node_T *ident;
+  ast_node_T *len;
 } ast_array_T;
 
 typedef struct AST_NODE_ARRAY_ELEMENT {
@@ -194,25 +216,30 @@ typedef struct AST_NODE_ARRAY_ELEMENT {
 
 typedef struct AST_NODE_PROP {
   ast_node_T base;
-  symbol_T *parent_sym;
-  token_T *prop;
-  ast_node_T *node;
-  unsigned char is_pointer;
+  token_T *dot;
+  ast_node_T *lhs;
+  ast_node_T *rhs;
 } ast_prop_T;
 
-ast_node_T *ast_new(ast_node_E type, location_T *loc);
+ast_node_T ast_new(ast_node_E type, location_T *loc);
 ast_node_T *ast_new_program(ast_node_T **expressions, size_t count);
 ast_node_T *ast_new_block(ast_node_T **expressions, size_t count);
 ast_node_T *ast_new_expr(ast_node_T *child);
-ast_node_T *ast_new_array_expr(ast_node_T *array_element, ast_node_T *op,
-                               ast_node_T *rhs);
 ast_node_T *ast_new_syscall(ast_node_T **params, size_t count);
 ast_node_T *ast_new_func_decl(token_T *ident, token_T **params,
                               size_t param_count, ast_node_T *block);
+ast_node_T *ast_new_decl(token_T *token, ast_node_T **children,
+                         size_t child_count);
+ast_node_T *ast_new_param_list(location_T *loc, ast_node_T **children,
+                               size_t child_count);
+ast_node_T *ast_new_func_param(ast_node_T *ident, ast_node_T *type,
+                               unsigned char is_mut);
+ast_node_T *ast_new_type_annot(token_T *token, ast_node_T *type,
+                               unsigned char is_array);
 ast_node_T *ast_new_func_call(token_T *ident, ast_node_T **params,
                               size_t param_count);
 ast_node_T *ast_new_struct_init(ast_node_T **attributes, size_t attr_count,
-                                char *struct_name);
+                                token_T *ident);
 ast_node_T *ast_new_attribute(token_T *name, ast_node_T *value);
 ast_node_T *ast_new_var_decl(ast_node_T *assign);
 ast_node_T *ast_new_const_decl(token_T *ident, ast_node_T *value, char *type);
@@ -225,14 +252,12 @@ ast_node_T *ast_new_cond(ast_node_T *lhs, ast_node_T *op, ast_node_T *rhs,
                          ast_node_T *logical, ast_node_T *cond);
 ast_node_T *ast_new_cond_op(token_T *t);
 ast_node_T *ast_new_logical_op(token_T *t);
-ast_node_T *ast_new_bin_op(ast_node_T *lhs, ast_node_T *op, ast_node_T *rhs,
-                           symbol_T *type);
+ast_node_T *ast_new_bin_op(ast_node_T *lhs, ast_node_T *op, ast_node_T *rhs);
 ast_node_T *ast_new_op(token_T *t);
 ast_node_T *ast_new_value(token_T *t);
-ast_node_T *ast_new_array(symbol_T *type, symbol_T *elem_type, token_T *len);
+ast_node_T *ast_new_array(ast_node_T *ident, ast_node_T *len);
 ast_node_T *ast_new_array_element(token_T *ident, ast_node_T *offset);
-ast_node_T *ast_new_prop(symbol_T *parent_sym, token_T *prop, ast_node_T *node,
-                         unsigned char is_pointer);
+ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs);
 ast_node_T *ast_new_dump(ast_node_T *value);
 
 char *ast_get_name(ast_node_E type);
