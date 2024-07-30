@@ -1,6 +1,8 @@
 #include "include/compiler.h"
 #include "include/logger.h"
 #include "include/parser.h"
+#include "include/symbol_table.h"
+#include "include/type_check.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,10 +88,16 @@ int main(int argc, char **argv) {
 
   ast_node_T *program = parser_parse(parser);
 
+  symbol_table_T *s_table = symbol_table_new("global", 0, NULL);
+  data_table_T *data_table = data_table_new();
+
+  type_check_t *tc = type_check_new(program, s_table, data_table, args->debug);
+  type_check(tc);
+
   char asmpath[strlen(args->out_path) + 5];
   snprintf(asmpath, strlen(args->out_path) + 5, "%s.asm", args->out_path);
-  compiler_T *compiler = compiler_new(program, parser->s_table,
-                                      parser->data_table, asmpath, args->debug);
+  compiler_T *compiler =
+      compiler_new(program, s_table, data_table, asmpath, args->debug);
   compile(compiler);
 
   log_info("Asembling\n");

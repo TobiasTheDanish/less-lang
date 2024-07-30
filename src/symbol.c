@@ -129,6 +129,14 @@ symbol_T *symbol_new_func(char *name, location_T *loc) {
   return (symbol_T *)func;
 }
 
+bool symbol_cmp(symbol_T *a, symbol_T *b) {
+  if (a->type != b->type) {
+    return false;
+  }
+
+  return strcmp(a->name, a->name) == 0;
+}
+
 bool symbol_is_prop(symbol_T *type, char *propname) {
   // printf("[symbol.c]: Checking if '%s' is prop of '%s'\n", propname,
   // type->name);

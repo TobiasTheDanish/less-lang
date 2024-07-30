@@ -68,6 +68,8 @@ symbol_T *symbol_new_var(char *name, location_T *loc, symbol_T *type,
 
 symbol_T *symbol_new_func(char *name, location_T *loc);
 
+bool symbol_cmp(symbol_T *a, symbol_T *b);
+
 bool symbol_is_prop(symbol_T *type, char *propname);
 
 size_t symbol_get_prop_offset(symbol_T *type, char *propname);

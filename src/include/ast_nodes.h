@@ -3,7 +3,6 @@
 
 #include "symbol.h"
 #include "token.h"
-#include <stddef.h>
 typedef enum AST_NODE_E {
   AST_PROGRAM,
   AST_BLOCK,
@@ -39,6 +38,7 @@ typedef enum AST_NODE_E {
 typedef struct AST_NODE_STRUCT {
   ast_node_E type;
   location_T *loc;
+  symbol_type_T *symbol_type;
 } ast_node_T;
 
 typedef struct AST_NODE_PROGRAM {

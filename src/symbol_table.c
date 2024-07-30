@@ -19,6 +19,7 @@ symbol_table_T *symbol_table_new(char *name, size_t level,
 }
 
 void symbol_table_init_builtins(symbol_table_T *table) {
+  symbol_table_put(table, symbol_new_type("undefined", NULL, 1, 0, NULL, 0));
   symbol_table_put(table, symbol_new_type("i8", NULL, 1, 1, NULL, 0));
   symbol_table_put(table, symbol_new_type("i16", NULL, 1, 2, NULL, 0));
   symbol_table_put(table, symbol_new_type("i32", NULL, 1, 4, NULL, 0));
