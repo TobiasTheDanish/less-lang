@@ -43,19 +43,6 @@ ast_node_T *ast_new_expr(ast_node_T *child) {
   return (ast_node_T *)expr;
 }
 
-ast_node_T *ast_new_array_expr(ast_node_T *array_element, ast_node_T *op,
-                               ast_node_T *rhs) {
-  ast_node_T base = ast_new(AST_ARRAY_EXPR, array_element->loc);
-
-  ast_array_expr_T *expr = malloc(sizeof(ast_array_expr_T));
-  expr->base = base;
-  expr->array_element = array_element;
-  expr->op = op;
-  expr->rhs = rhs;
-
-  return (ast_node_T *)expr;
-}
-
 ast_node_T *ast_new_syscall(ast_node_T **params, size_t count) {
   ast_node_T base = ast_new(AST_SYSCALL, NULL);
 

@@ -155,7 +155,14 @@ ast_node_T *factor(parser_T *parser) {
 
   token_T *current = parser->tokens[parser->t_index];
   if (current->type == T_DOT) {
+    consume(parser, T_DOT);
     res = ast_new_prop(current, res, expr(parser));
+  }
+
+  current = parser->tokens[parser->t_index];
+  if (current->type == T_ASSIGN) {
+    consume(parser, T_ASSIGN);
+    res = ast_new_assign(current, res, expr(parser));
   }
 
   while (current->type == T_MULTIPLY || current->type == T_DIVIDE ||
@@ -428,6 +435,8 @@ ast_node_T *var_decl(parser_T *parser) {
     children[child_count++] = type_annotation(parser);
   }
 
+  consume(parser, T_ASSIGN);
+
   children[child_count++] = expr(parser);
 
   return ast_new_decl(decl_token, children, child_count);
@@ -671,7 +680,7 @@ ast_node_T *expr(parser_T *parser) {
 
   default:
     log_error(token->loc, 1,
-              "Invalid token type in start of expression. %s cannot start an "
+              "Invalid token type in start of expression. '%s' cannot start an "
               "expression.\n",
               token_get_name(token->type));
   }
@@ -708,6 +717,10 @@ ast_node_T *statement(parser_T *parser) {
     break;
   case T_WHILE:
     child = while_block(parser);
+    break;
+  case T_IDENT:
+    child = expr(parser);
+    consume(parser, T_SEMI);
     break;
 
   default:
