@@ -99,8 +99,10 @@ int main(int argc, char **argv) {
   log_info("Asembling finished\n");
 
   log_info("Linking\n");
-  snprintf(cmd, 220, "ld -static -g -o %s %s.o -Llib -lgc", args->out_path,
-           args->out_path);
+  snprintf(cmd, 220,
+           "ld -g --dynamic-linker=/lib/ld-linux-x86-64.so.2 -o %s %s.o "
+           "lib/gc.o lib/libmem.o -lc",
+           args->out_path, args->out_path);
   call_cmd(cmd);
   log_info("Linking finished\n");
 

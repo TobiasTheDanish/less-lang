@@ -416,7 +416,7 @@ char *compile_value(compiler_T *c, ast_node_T *node, size_t reg_no) {
     char str[40];
     snprintf(str, 40, "    mov rdi, DWORD %lu\n", strlen(value->t->value));
     append_file(c->file, str);
-    append_file(c->file, "     call _alloc\n");
+    append_file(c->file, "     call core_mem_alloc\n");
     char *mem_reg = "rax";
 
     if (strcmp(reg, mem_reg) == 0) {
@@ -648,7 +648,7 @@ char *compile_array(compiler_T *c, ast_node_T *node, size_t reg_no) {
   snprintf(str, 50, "    mov rdi, %zu\n",
            (atoi(arr->len->value) * elem_type->size) + 8);
   append_file(c->file, str);
-  append_file(c->file, "    call _alloc\n");
+  append_file(c->file, "    call core_mem_alloc\n");
   snprintf(str, 50, "    mov QWORD [rax], %s\n", arr->len->value);
   append_file(c->file, str);
   snprintf(str, 50, "    mov %s, rax\n", reg);
@@ -977,7 +977,7 @@ char *compile_struct_init(compiler_T *c, ast_node_T *node, size_t reg_no) {
   char str[50];
   snprintf(str, 50, "    mov rdi, %zu\n", symbol->size);
   append_file(c->file, str);
-  append_file(c->file, "    call _alloc\n");
+  append_file(c->file, "    call core_mem_alloc\n");
 
   for (size_t i = 0; i < structure->attr_count; i++) {
     compile_prop_init(c, structure->attributes[i], (symbol_T *)symbol,
@@ -1460,9 +1460,10 @@ void compile_program(compiler_T *c, ast_node_T *node) {
 
 void compile(compiler_T *c) {
   append_file(c->file, "BITS 64\n");
-  append_file(c->file, "EXTERN _alloc\n");
+  append_file(c->file, "EXTERN core_mem_alloc\n");
+  append_file(c->file, "EXTERN core_mem_free\n");
+  append_file(c->file, "EXTERN core_mem_gc_collect\n");
   append_file(c->file, "global _start\n");
-  // append_file(c->file, "extern alloc, free\n");
   append_file(c->file, "section .text\n");
 
   append_file(c->file, "_dump:\n");
