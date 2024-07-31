@@ -5,6 +5,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+unsigned char upgrade_table[TYPE_CAT_COUNT][TYPE_CAT_COUNT] = {
+  //          VOID I8 I16 I32 I64 ARRAY STRING CUSTOM
+  /*VOID  */  {0,   0,  0,  0,  0,  0,  0,  0,},
+  /*I8    */  {0,   1,  1,  1,  1,  0,  0,  0,},
+  /*i16   */  {0,   0,  1,  1,  1,  0,  0,  0,}, 
+  /*i32   */  {0,   0,  0,  1,  1,  0,  0,  0,}, 
+  /*i64   */  {0,   0,  0,  0,  1,  0,  0,  0,}, 
+  /*ARRAY */  {0,   0,  0,  0,  0,  1,  0,  0,}, 
+  /*STRING*/  {0,   0,  0,  0,  0,  0,  1,  0,}, 
+  /*CUSTOM*/  {0,   0,  0,  0,  0,  0,  0,  1,}, 
+};
+
+unsigned char symbol_can_upgrade_type(type_cat_E a, type_cat_E b) {
+  return upgrade_table[a][b];
+}
+
 symbol_T *symbol_new(char *name, symbol_E type, location_T *loc) {
   symbol_T *s = malloc(sizeof(symbol_T));
 
@@ -17,10 +33,11 @@ symbol_T *symbol_new(char *name, symbol_E type, location_T *loc) {
 
 symbol_T *symbol_new_type(char *name, location_T *loc,
                           unsigned char is_primitive, size_t size,
-                          symbol_T **props, size_t prop_count) {
+                          symbol_T **props, size_t prop_count, type_cat_E type_cat) {
   symbol_type_T *s = malloc(sizeof(symbol_type_T));
 
   s->base = *symbol_new(name, SYM_VAR_TYPE, loc);
+  s->type_cat = type_cat;
   s->props = props;
   s->prop_count = prop_count;
   s->size = size;
@@ -117,10 +134,11 @@ symbol_T *symbol_new_var(char *name, location_T *loc, symbol_T *type,
   return (symbol_T *)var;
 }
 
-symbol_T *symbol_new_func(char *name, location_T *loc) {
+symbol_T *symbol_new_func(char *name, symbol_table_T *scope, location_T *loc) {
   symbol_func_T *func = malloc(sizeof(symbol_func_T));
   symbol_T *base = symbol_new(name, SYM_FUNC, loc);
   func->base = *base;
+  func->scope = scope;
   func->params = calloc(1, sizeof(symbol_T *));
   func->param_count = 0;
   func->params[0] = (void *)0;

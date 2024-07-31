@@ -19,20 +19,22 @@ symbol_table_T *symbol_table_new(char *name, size_t level,
 }
 
 void symbol_table_init_builtins(symbol_table_T *table) {
-  symbol_table_put(table, symbol_new_type("undefined", NULL, 1, 0, NULL, 0));
-  symbol_table_put(table, symbol_new_type("i8", NULL, 1, 1, NULL, 0));
-  symbol_table_put(table, symbol_new_type("i16", NULL, 1, 2, NULL, 0));
-  symbol_table_put(table, symbol_new_type("i32", NULL, 1, 4, NULL, 0));
-  symbol_table_put(table, symbol_new_type("i64", NULL, 1, 8, NULL, 0));
+  symbol_table_put(table,
+                   symbol_new_type("undefined", NULL, 1, 0, NULL, 0, VOID));
+  symbol_table_put(table, symbol_new_type("void", NULL, 1, 0, NULL, 0, VOID));
+  symbol_table_put(table, symbol_new_type("i8", NULL, 1, 1, NULL, 0, I8));
+  symbol_table_put(table, symbol_new_type("i16", NULL, 1, 2, NULL, 0, I16));
+  symbol_table_put(table, symbol_new_type("i32", NULL, 1, 4, NULL, 0, I32));
+  symbol_table_put(table, symbol_new_type("i64", NULL, 1, 8, NULL, 0, I64));
   symbol_type_T *array_type =
-      (symbol_type_T *)symbol_new_type("array", NULL, 0, 8, NULL, 0);
+      (symbol_type_T *)symbol_new_type("array", NULL, 0, 8, NULL, 0, ARRAY);
   array_type->prop_count = 1;
   array_type->props = malloc(sizeof(symbol_T));
   array_type->props[0] =
       symbol_new_prop("len", 0, symbol_table_get(table, "i32"), NULL);
   symbol_table_put(table, (symbol_T *)array_type);
   symbol_type_T *str_type =
-      (symbol_type_T *)symbol_new_type("string", NULL, 0, 8, NULL, 0);
+      (symbol_type_T *)symbol_new_type("string", NULL, 0, 8, NULL, 0, STRING);
   str_type->prop_count = 2;
   str_type->props = malloc(sizeof(symbol_T) * 2);
   str_type->props[0] =

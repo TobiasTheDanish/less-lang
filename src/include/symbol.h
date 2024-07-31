@@ -4,6 +4,22 @@
 #include "token.h"
 #include <stddef.h>
 
+typedef struct SYMBOL_TABLE_STRUCT symbol_table_T;
+
+typedef enum TYPE_CAT_ENUM {
+  VOID = 0,
+  I8,
+  I16,
+  I32,
+  I64,
+  ARRAY,
+  STRING,
+  CUSTOM,
+  TYPE_CAT_COUNT,
+} type_cat_E;
+
+unsigned char symbol_can_upgrade_type(type_cat_E a, type_cat_E b);
+
 typedef enum SYMBOL_ENUM {
   SYM_VAR,
   SYM_FUNC,
@@ -38,6 +54,7 @@ typedef struct SYMBOL_PROP_STRUCT {
 
 typedef struct SYMBOL_VAR_TYPE_STRUCT {
   symbol_T base;
+  type_cat_E type_cat;
   char *operand;
   unsigned char is_primitive;
   size_t size;
@@ -48,6 +65,7 @@ typedef struct SYMBOL_VAR_TYPE_STRUCT {
 
 typedef struct SYMBOL_FUNC_STRUCT {
   symbol_T base;
+  symbol_table_T *scope;
   symbol_T **params;
   size_t param_count;
   symbol_T *ret_type;
@@ -57,7 +75,7 @@ symbol_T *symbol_new(char *name, symbol_E type, location_T *loc);
 
 symbol_T *symbol_new_type(char *name, location_T *loc,
                           unsigned char is_primitive, size_t size,
-                          symbol_T **props, size_t count);
+                          symbol_T **props, size_t count, type_cat_E type_cat);
 
 symbol_T *symbol_new_prop(char *name, size_t offset, symbol_T *type,
                           symbol_T *elem_type);
@@ -66,7 +84,7 @@ symbol_T *symbol_new_var(char *name, location_T *loc, symbol_T *type,
                          unsigned char is_mut, unsigned char is_param,
                          unsigned char is_const, char *const_val);
 
-symbol_T *symbol_new_func(char *name, location_T *loc);
+symbol_T *symbol_new_func(char *name, symbol_table_T *scope, location_T *loc);
 
 bool symbol_cmp(symbol_T *a, symbol_T *b);
 

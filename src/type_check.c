@@ -5,10 +5,21 @@
 #include "include/symbol_table.h"
 #include "include/token.h"
 #include <stdlib.h>
+#include <string.h>
+void check_if(type_check_t *t, ast_node_T *node);
+void check_block(type_check_t *t, ast_node_T *node);
 void check_value(type_check_t *t, ast_node_T *node);
 void check_bin_op(type_check_t *t, ast_node_T *node);
+void check_type_annot(type_check_t *t, ast_node_T *node);
 void check_expr(type_check_t *t, ast_node_T *node);
+void check_statement(type_check_t *t, ast_node_T *node);
 void check_program(type_check_t *t, ast_node_T *node);
+
+ast_node_T *shift(ast_node_T ***array) {
+  ast_node_T *res = **array;
+  *array = *array + 1;
+  return res;
+}
 
 type_check_t *type_check_new(ast_node_T *program, symbol_table_T *table,
                              data_table_T *data, unsigned char debug) {
@@ -36,15 +47,19 @@ void check_value(type_check_t *t, ast_node_T *node) {
   switch (value->t->type) {
   case T_POINTER:
   case T_IDENT: {
-    symbol_var_T *var;
+    log_debug(t->debug, "Checking POINTER or IDENT\n");
+    symbol_type_T *type;
     if (symbol_table_contains(t->table, value->t->value)) {
-      var = (symbol_var_T *)symbol_table_get(t->table, value->t->value);
+      symbol_var_T *var =
+          (symbol_var_T *)symbol_table_get(t->table, value->t->value);
+      type = (symbol_type_T *)var->type;
     } else {
-      var = (symbol_var_T *)symbol_table_get(t->table, "undefined");
+      type = (symbol_type_T *)symbol_table_get(t->table, "undefined");
     }
-    node->symbol_type = (symbol_type_T *)var->type;
+    node->symbol_type = type;
   } break;
   case T_INTEGER: {
+    log_debug(t->debug, "Checking INTEGER\n");
     // printf("<%s, %s>\n", value->t->value, "int");
     char *type;
     if (atoi(value->t->value) < 255)
@@ -57,12 +72,14 @@ void check_value(type_check_t *t, ast_node_T *node) {
     node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, type);
   } break;
   case T_STRING:
+    log_debug(t->debug, "Checking STRING\n");
     data_table_put(t->data, value->t, "string");
     // printf("<%s, %s>\n", value->t->value, "string");
     node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, "string");
     break;
 
   case T_CHAR:
+    log_debug(t->debug, "Checking CHAR\n");
     node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, "i8");
     break;
 
@@ -70,6 +87,8 @@ void check_value(type_check_t *t, ast_node_T *node) {
     log_error(value->t->loc, 1, "Invalid token type for value. Found: %s.\n",
               token_get_name(value->t->type));
   }
+
+  log_debug(t->debug, "Finished checking value\n");
 }
 
 void check_bin_op(type_check_t *t, ast_node_T *node) {
@@ -93,18 +112,24 @@ void check_bin_op(type_check_t *t, ast_node_T *node) {
 
 void check_expr(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check expression\n");
-  ast_expr_T *expr = (ast_expr_T *)node;
+  log_debug(t->debug, "expr ast node '%s'\n", ast_get_name(node->type));
 
-  switch (expr->child->type) {
+  // if (node->type == AST_EXPR) {
+  //   node = ((ast_expr_T *)node)->child;
+  // }
+
+  switch (node->type) {
   case AST_BIN_OP:
-    check_bin_op(t, expr->child);
+    check_bin_op(t, node);
     break;
   case AST_SYSCALL:
     break;
   case AST_IF:
+    check_if(t, node);
     break;
   case AST_VALUE:
-    check_value(t, expr->child);
+    check_value(t, node);
+    break;
 
   case AST_WHILE:
   case AST_DUMP:
@@ -131,8 +156,8 @@ void check_expr(type_check_t *t, ast_node_T *node) {
   case AST_TYPE_ANNOT:
   case AST_FUNC_PARAM_LIST:
   case AST_FUNC_PARAM:
-    log_error(expr->child->loc, 1, "Unexpected node in expr, found: %s.\n",
-              ast_get_name(expr->child->type));
+    log_error(node->loc, 1, "Unexpected node in expr, found: %s.\n",
+              ast_get_name(node->type));
     break;
   }
 }
@@ -144,9 +169,222 @@ void check_dump(type_check_t *t, ast_node_T *node) {
   check_expr(t, dump->value);
 }
 
+void check_type_annot(type_check_t *t, ast_node_T *node) {
+  log_debug(t->debug, "type check type annotation\n");
+  ast_type_annot_T *type_annot = (ast_type_annot_T *)node;
+  ast_value_T *value = (ast_value_T *)type_annot->type;
+  symbol_type_T *type;
+  if (symbol_table_contains(t->table, value->t->value)) {
+    symbol_T *symbol = symbol_table_get(t->table, value->t->value);
+    if (symbol->type != SYM_VAR_TYPE) {
+      log_error(value->t->loc, 1, "Identifier '%s' is not a type\n",
+                value->t->value);
+    } else {
+      type = (symbol_type_T *)symbol;
+    }
+  } else {
+    type = (symbol_type_T *)symbol_table_get(t->table, "undefined");
+  }
+  node->symbol_type = type;
+}
+
+void check_param_list(type_check_t *t, ast_node_T *node) {
+  log_debug(t->debug, "type check function parameter list\n");
+  ast_param_list_T *list = (ast_param_list_T *)node;
+  for (size_t i = 0; i < list->child_count; i++) {
+    ast_node_T *param_node = list->children[i];
+
+    if (param_node->type != AST_FUNC_PARAM) {
+      log_error(param_node->loc, 1,
+                "Unexpected node in parameter list '%s', expected parameter\n",
+                ast_get_name(param_node->type));
+    }
+
+    ast_func_param_T *param = (ast_func_param_T *)param_node;
+
+    ast_value_T *ident = (ast_value_T *)param->ident;
+    check_type_annot(t, param->type_annot);
+    ast_value_T *annot = (ast_value_T *)param->type_annot;
+
+    if (strcmp(annot->base.symbol_type->base.name, "undefined") == 0) {
+      log_error(param->type_annot->loc, 1,
+                "Undefined symbol '%s' used as type in function parameter\n",
+                annot->t->value);
+    }
+
+    symbol_T *param_symbol = symbol_new_var(ident->t->value, ident->t->loc,
+                                            (symbol_T *)annot->base.symbol_type,
+                                            param->is_mut, 1, 0, NULL);
+
+    symbol_table_put(t->table, param_symbol);
+  }
+}
+
 void check_func_decl(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check function declaration\n");
-  log_todo("check_func_decl not implemented yet\n");
+  ast_decl_T *decl = (ast_decl_T *)node;
+
+  if (decl->child_count == 0 || decl->children[0]->type != AST_VALUE) {
+    log_error(decl->token->loc, 1,
+              "Missing function name in function declaration\n");
+  }
+  ast_node_T *name = shift(&decl->children);
+  decl->child_count--;
+  check_value(t, name);
+  ast_value_T *v = (ast_value_T *)name;
+
+  if (name->symbol_type == NULL) {
+    log_error(v->t->loc, 1,
+              "Type for symbol '%s' was null after call to check_value\n",
+              v->t->value);
+  }
+
+  if (strcmp(name->symbol_type->base.name, "undefined") != 0) {
+    log_error(name->loc, 1, "Redefinition of symbol '%s'\n", v->t->value);
+  }
+
+  symbol_table_T *parent_scope = t->table;
+  symbol_table_T *func_scope =
+      symbol_table_new(v->t->value, t->table->level + 1, parent_scope);
+
+  symbol_T *func_symbol = symbol_new_func(v->t->value, func_scope, v->t->loc);
+  symbol_table_put(t->table, func_symbol);
+  t->table = func_scope;
+
+  if (decl->child_count == 0) {
+    log_error(decl->token->loc, 1,
+              "Missing parameter list in function declaration\n");
+  } else if (decl->children[0]->type != AST_FUNC_PARAM_LIST) {
+    log_error(decl->children[0]->loc, 1,
+              "Expected parameter list, found '%s'\n",
+              ast_get_name(decl->children[0]->type));
+  }
+
+  check_param_list(t, shift(&decl->children));
+  decl->child_count--;
+
+  if (decl->child_count == 0) {
+    log_error(decl->token->loc, 1,
+              "Missing code block in function declaration\n");
+  }
+
+  if (decl->children[0]->type == AST_TYPE_ANNOT) {
+    ast_node_T *type = shift(&decl->children);
+    decl->child_count--;
+    check_type_annot(t, type);
+    if (strcmp(type->symbol_type->base.name, "undefined") == 0) {
+      ast_value_T *v = (ast_value_T *)type;
+      log_error(
+          type->loc, 1,
+          "Undefined symbol '%s' used as return type in function declaration\n",
+          v->t->value);
+    }
+    node->symbol_type = type->symbol_type;
+  } else {
+    node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, "void");
+  }
+
+  if (decl->child_count == 0 || decl->children[0]->type != AST_BLOCK) {
+    log_error(decl->token->loc, 1,
+              "Missing code block in function declaration\n");
+  }
+
+  check_block(t, decl->children[0]);
+
+  t->table = parent_scope;
+
+  if (t->debug) {
+    symbol_table_print(func_scope);
+  }
+}
+
+void check_block(type_check_t *t, ast_node_T *node) {
+  log_debug(t->debug, "type check block\n");
+  ast_block_T *block = (ast_block_T *)node;
+
+  for (size_t i = 0; i < block->count; i++) {
+    log_debug(t->debug, "stmt #%d: '%s'\n", i,
+              ast_get_name(block->expressions[i]->type));
+    check_statement(t, block->expressions[i]);
+  }
+}
+
+void check_const_decl(type_check_t *t, ast_node_T *node) {
+  log_todo("check_const_decl not implemented yet\n");
+}
+
+void check_var_decl(type_check_t *t, ast_node_T *node) {
+  ast_decl_T *decl = (ast_decl_T *)node;
+  unsigned char is_mut = decl->token->type == T_MUT;
+
+  if (decl->child_count == 0 || decl->children[0]->type != AST_VALUE) {
+    log_error(decl->token->loc, 1,
+              "Missing variable name in variable declaration\n");
+  }
+  ast_node_T *name = shift(&decl->children);
+  decl->child_count--;
+  check_value(t, name);
+  ast_value_T *v = (ast_value_T *)name;
+
+  if (name->symbol_type == NULL) {
+    log_error(v->t->loc, 1,
+              "Type for symbol '%s' was null after call to check_value\n",
+              v->t->value);
+  }
+
+  if (strcmp(name->symbol_type->base.name, "undefined") != 0) {
+    log_error(name->loc, 1, "Redefinition of symbol '%s'\n", v->t->value);
+  }
+
+  if (decl->child_count == 0) {
+    log_error(name->loc, 1, "Missing value in declaration of symbol '%s'\n",
+              v->t->value);
+  }
+
+  ast_node_T *type_annot = NULL;
+  if (decl->children[0]->type == AST_TYPE_ANNOT) {
+    type_annot = shift(&decl->children);
+    decl->child_count--;
+    check_type_annot(t, type_annot);
+    if (strcmp(type_annot->symbol_type->base.name, "undefined") == 0) {
+      ast_value_T *type_v = (ast_value_T *)type_annot;
+      log_error(type_annot->loc, 1,
+                "Undefined symbol '%s' used as type annotation in variable "
+                "declaration\n",
+                type_v->t->value);
+    }
+    node->symbol_type = type_annot->symbol_type;
+  }
+
+  ast_node_T *value = shift(&decl->children);
+  decl->child_count--;
+
+  check_expr(t, value);
+
+  if (strcmp(value->symbol_type->base.name, "undefined") == 0) {
+    log_error(name->loc, 1,
+              "Cannot use undefined symbol as value for variable '%s'\n",
+              v->t->value);
+  }
+
+  if (type_annot != NULL) {
+    if (strcmp(type_annot->symbol_type->base.name,
+               value->symbol_type->base.name) != 0 &&
+        !symbol_can_upgrade_type(value->symbol_type->type_cat,
+                                 type_annot->symbol_type->type_cat)) {
+      log_error(
+          value->loc, 1,
+          "Cannot assign value of type '%s', to variable '%s' of type '%s'\n",
+          value->symbol_type->base.name, v->t->value,
+          type_annot->symbol_type->base.name);
+    }
+  } else {
+    node->symbol_type = value->symbol_type;
+  }
+
+  symbol_T *var_symbol = symbol_new_var(
+      v->t->value, v->t->loc, (symbol_T *)node->symbol_type, is_mut, 0, 0, 0);
+  symbol_table_put(t->table, var_symbol);
 }
 
 void check_decl(type_check_t *t, ast_node_T *node) {
@@ -154,8 +392,11 @@ void check_decl(type_check_t *t, ast_node_T *node) {
   ast_decl_T *decl = (ast_decl_T *)node;
   switch (decl->token->type) {
   case T_LET:
+  case T_MUT:
+    check_var_decl(t, node);
+    break;
   case T_CONST:
-    log_todo("check_decl not implemented yet\n");
+    check_const_decl(t, node);
     break;
   case T_FUNC:
     check_func_decl(t, node);
@@ -168,12 +409,17 @@ void check_decl(type_check_t *t, ast_node_T *node) {
   }
 }
 
+void check_if(type_check_t *t, ast_node_T *node) {
+  log_todo("check_if not implemented yet\n");
+}
+
 void check_statement(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check statement\n");
   switch (node->type) {
   case AST_SYSCALL:
     break;
   case AST_IF:
+    check_if(t, node);
     break;
   case AST_ASSIGN:
     break;
@@ -181,6 +427,7 @@ void check_statement(type_check_t *t, ast_node_T *node) {
     break;
   case AST_DUMP:
     check_dump(t, node);
+    break;
   case AST_DECL:
     check_decl(t, node);
     break;
@@ -206,4 +453,10 @@ void check_program(type_check_t *t, ast_node_T *node) {
               "Unexpected node to start program.\n Found: %s, expects: %s.\n",
               ast_get_name(node->type), ast_get_name(AST_PROGRAM));
   }
+
+  if (t->debug) {
+    symbol_table_print(t->table);
+  }
+
+  log_todo("Static analysis is not implemented yet\n");
 }

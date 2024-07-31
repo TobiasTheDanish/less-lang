@@ -296,13 +296,15 @@ ast_node_T *block(parser_T *parser) {
 
     while (token->type != T_RCURLY) {
       expressions[count++] = statement(parser);
-      // count += 1;
 
       expressions = realloc(expressions, (count + 1) * sizeof(ast_node_T *));
 
       token = parser->tokens[parser->t_index];
     }
     consume(parser, T_RCURLY);
+  } else {
+    log_error(token->loc, 1, "Expected '{' to start block, but found '%s'\n",
+              token->value);
   }
 
   return ast_new_block(expressions, count);
@@ -662,19 +664,18 @@ ast_node_T *struct_decl(parser_T *parser) {
 //  bin_op SEMI | func_call SEMI ;
 ast_node_T *expr(parser_T *parser) {
   token_T *token = parser->tokens[parser->t_index];
-  ast_node_T *child;
 
   switch (token->type) {
   case T_SYSCALL:
-    child = syscall(parser);
+    return syscall(parser);
     break;
   case T_IF:
-    child = if_block(parser);
+    return if_block(parser);
     break;
   case T_IDENT:
   case T_INTEGER:
   case T_POINTER: {
-    child = term(parser);
+    return term(parser);
     break;
   }
 
@@ -684,7 +685,7 @@ ast_node_T *expr(parser_T *parser) {
               "expression.\n",
               token_get_name(token->type));
   }
-  return ast_new_expr(child);
+  return NULL;
 }
 
 // var_decl | const_decl | assign SEMI | dump SEMI | func_decl |
@@ -717,6 +718,9 @@ ast_node_T *statement(parser_T *parser) {
     break;
   case T_WHILE:
     child = while_block(parser);
+    break;
+  case T_IF:
+    child = if_block(parser);
     break;
   case T_IDENT:
     child = expr(parser);

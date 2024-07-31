@@ -8,7 +8,6 @@ func main() {
 		res = 500 - 200;
 	} else {
 		res = 207 / 3;
-
 	}
 
 	dump res;

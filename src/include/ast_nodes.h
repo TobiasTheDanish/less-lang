@@ -53,11 +53,6 @@ typedef struct AST_NODE_BLOCK {
   size_t count;
 } ast_block_T;
 
-typedef struct AST_NODE_EXPR {
-  ast_node_T base;
-  ast_node_T *child;
-} ast_expr_T;
-
 typedef struct AST_NODE_SYSCALL {
   ast_node_T base;
   ast_node_T **params;
@@ -224,7 +219,6 @@ typedef struct AST_NODE_PROP {
 ast_node_T ast_new(ast_node_E type, location_T *loc);
 ast_node_T *ast_new_program(ast_node_T **expressions, size_t count);
 ast_node_T *ast_new_block(ast_node_T **expressions, size_t count);
-ast_node_T *ast_new_expr(ast_node_T *child);
 ast_node_T *ast_new_syscall(ast_node_T **params, size_t count);
 ast_node_T *ast_new_func_decl(token_T *ident, token_T **params,
                               size_t param_count, ast_node_T *block);

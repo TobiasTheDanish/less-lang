@@ -33,16 +33,6 @@ ast_node_T *ast_new_block(ast_node_T **expressions, size_t count) {
   return (ast_node_T *)block;
 }
 
-ast_node_T *ast_new_expr(ast_node_T *child) {
-  ast_node_T base = ast_new(AST_EXPR, NULL);
-
-  ast_expr_T *expr = malloc(sizeof(ast_expr_T));
-  expr->base = base;
-  expr->child = child;
-
-  return (ast_node_T *)expr;
-}
-
 ast_node_T *ast_new_syscall(ast_node_T **params, size_t count) {
   ast_node_T base = ast_new(AST_SYSCALL, NULL);
 

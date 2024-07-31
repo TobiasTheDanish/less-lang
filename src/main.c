@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
   data_table_T *data_table = data_table_new();
 
   type_check_t *tc = type_check_new(program, s_table, data_table, args->debug);
-  type_check(tc);
+  program = type_check(tc);
 
   char asmpath[strlen(args->out_path) + 5];
   snprintf(asmpath, strlen(args->out_path) + 5, "%s.asm", args->out_path);
