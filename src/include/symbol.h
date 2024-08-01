@@ -8,6 +8,7 @@ typedef struct SYMBOL_TABLE_STRUCT symbol_table_T;
 
 typedef enum TYPE_CAT_ENUM {
   VOID = 0,
+  BOOL,
   I8,
   I16,
   I32,

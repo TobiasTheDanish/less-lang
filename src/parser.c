@@ -269,20 +269,16 @@ ast_node_T *logical_op(parser_T *parser) {
 // conditional : (array_element | value | bin_op | prop) cond_op (value | bin_op
 // | prop | array_element) (logical_op conditional)* ;
 ast_node_T *conditional(parser_T *parser) {
-  ast_node_T *lhs = expr(parser);
-
-  ast_node_T *operation = cond_op(parser);
-  ast_node_T *rhs = expr(parser);
+  ast_node_T *lhs = term(parser);
 
   token_T *next = parser->tokens[parser->t_index];
-  if (token_is_logical(next)) {
-    ast_node_T *logical = logical_op(parser);
-    ast_node_T *c = conditional(parser);
-
-    return ast_new_cond(lhs, operation, rhs, logical, c);
+  while (token_is_logical(next)) {
+    ast_node_T *operation = cond_op(parser);
+    lhs = ast_new_cond(lhs, operation, term(parser));
+    next = parser->tokens[parser->t_index];
   }
 
-  return ast_new_cond(lhs, operation, rhs, NULL, NULL);
+  return lhs;
 }
 
 // block : LCURLY (expr)* RCURLY ;
@@ -316,16 +312,13 @@ ast_node_T *else_block(parser_T *parser, size_t index) {
   ast_node_T *b;
 
   switch (next->type) {
-  case T_IF:
-    b = if_block(parser);
-    break;
   case T_LCURLY:
     b = block(parser);
     break;
 
   default:
-    log_error(next->loc, 1, "Invalid token type for else_block. Found: %s.\n",
-              token_get_name(next->type));
+    b = statement(parser);
+    break;
   }
 
   return ast_new_else(index, b);
@@ -345,7 +338,7 @@ ast_node_T *while_block(parser_T *parser) {
 ast_node_T *if_block(parser_T *parser) {
   size_t index = parser->if_count++;
   consume(parser, T_IF);
-  ast_node_T *cond = conditional(parser);
+  ast_node_T *cond = expr(parser);
   ast_node_T *b = block(parser);
   ast_node_T *elze = NULL;
 
@@ -675,7 +668,7 @@ ast_node_T *expr(parser_T *parser) {
   case T_IDENT:
   case T_INTEGER:
   case T_POINTER: {
-    return term(parser);
+    return conditional(parser);
     break;
   }
 
@@ -686,6 +679,15 @@ ast_node_T *expr(parser_T *parser) {
               token_get_name(token->type));
   }
   return NULL;
+}
+
+ast_node_T *return_stmt(parser_T *parser) {
+  token_T *ret_token = parser->tokens[parser->t_count];
+  consume(parser, T_RETURN);
+
+  ast_node_T *ret_val = expr(parser);
+
+  return ast_new_return_stmt(ret_token, ret_val);
 }
 
 // var_decl | const_decl | assign SEMI | dump SEMI | func_decl |
@@ -724,6 +726,10 @@ ast_node_T *statement(parser_T *parser) {
     break;
   case T_IDENT:
     child = expr(parser);
+    consume(parser, T_SEMI);
+    break;
+  case T_RETURN:
+    child = return_stmt(parser);
     consume(parser, T_SEMI);
     break;
 

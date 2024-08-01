@@ -211,17 +211,14 @@ ast_node_T *ast_new_else(size_t index, ast_node_T *block) {
   return (ast_node_T *)elze;
 }
 
-ast_node_T *ast_new_cond(ast_node_T *lhs, ast_node_T *op, ast_node_T *rhs,
-                         ast_node_T *logical, ast_node_T *conditional) {
-  ast_node_T base = ast_new(AST_CONDITIONAL, NULL);
+ast_node_T *ast_new_cond(ast_node_T *lhs, ast_node_T *op, ast_node_T *rhs) {
+  ast_node_T base = ast_new(AST_CONDITIONAL, op->loc);
 
   ast_cond_T *cond = malloc(sizeof(ast_cond_T));
   cond->base = base;
   cond->lhs = lhs;
   cond->rhs = rhs;
   cond->op = op;
-  cond->logical = logical;
-  cond->cond = conditional;
 
   return (ast_node_T *)cond;
 }
@@ -320,6 +317,15 @@ ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs) {
   return (ast_node_T *)p;
 }
 
+ast_node_T *ast_new_return_stmt(token_T *token, ast_node_T *value) {
+  ast_return_T *ret = malloc(sizeof(ast_return_T));
+  ret->base = ast_new(AST_RETURN, token->loc);
+  ret->token = token;
+  ret->value = value;
+
+  return (ast_node_T *)ret;
+}
+
 char *ast_get_name(ast_node_E type) {
   char *names[] = {"Program",
                    "Block",
@@ -349,6 +355,7 @@ char *ast_get_name(ast_node_E type) {
                    "Array element",
                    "Property",
                    "Dump",
+                   "Return",
                    "No operation"};
 
   return names[type];

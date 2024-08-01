@@ -32,6 +32,7 @@ typedef enum AST_NODE_E {
   AST_ARRAY_ELEMENT,
   AST_PROP,
   AST_DUMP,
+  AST_RETURN,
   AST_NO_OP,
 } ast_node_E;
 
@@ -159,8 +160,6 @@ typedef struct AST_NODE_CONDITIONAL {
   ast_node_T *lhs;
   ast_node_T *op;
   ast_node_T *rhs;
-  ast_node_T *logical;
-  ast_node_T *cond;
 } ast_cond_T;
 
 typedef struct AST_NODE_COND_OP {
@@ -216,6 +215,12 @@ typedef struct AST_NODE_PROP {
   ast_node_T *rhs;
 } ast_prop_T;
 
+typedef struct AST_NODE_RETURN {
+  ast_node_T base;
+  token_T *token;
+  ast_node_T *value;
+} ast_return_T;
+
 ast_node_T ast_new(ast_node_E type, location_T *loc);
 ast_node_T *ast_new_program(ast_node_T **expressions, size_t count);
 ast_node_T *ast_new_block(ast_node_T **expressions, size_t count);
@@ -242,8 +247,7 @@ ast_node_T *ast_new_while(size_t index, ast_node_T *cond, ast_node_T *block);
 ast_node_T *ast_new_if(size_t index, ast_node_T *cond, ast_node_T *block,
                        ast_node_T *elze);
 ast_node_T *ast_new_else(size_t index, ast_node_T *block);
-ast_node_T *ast_new_cond(ast_node_T *lhs, ast_node_T *op, ast_node_T *rhs,
-                         ast_node_T *logical, ast_node_T *cond);
+ast_node_T *ast_new_cond(ast_node_T *lhs, ast_node_T *op, ast_node_T *rhs);
 ast_node_T *ast_new_cond_op(token_T *t);
 ast_node_T *ast_new_logical_op(token_T *t);
 ast_node_T *ast_new_bin_op(ast_node_T *lhs, ast_node_T *op, ast_node_T *rhs);
@@ -253,6 +257,7 @@ ast_node_T *ast_new_array(ast_node_T *ident, ast_node_T *len);
 ast_node_T *ast_new_array_element(token_T *ident, ast_node_T *offset);
 ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs);
 ast_node_T *ast_new_dump(ast_node_T *value);
+ast_node_T *ast_new_return_stmt(token_T *token, ast_node_T *value);
 
 char *ast_get_name(ast_node_E type);
 #endif // !AST_NODES_H

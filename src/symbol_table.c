@@ -22,6 +22,7 @@ void symbol_table_init_builtins(symbol_table_T *table) {
   symbol_table_put(table,
                    symbol_new_type("undefined", NULL, 1, 0, NULL, 0, VOID));
   symbol_table_put(table, symbol_new_type("void", NULL, 1, 0, NULL, 0, VOID));
+  symbol_table_put(table, symbol_new_type("bool", NULL, 1, 1, NULL, 0, BOOL));
   symbol_table_put(table, symbol_new_type("i8", NULL, 1, 1, NULL, 0, I8));
   symbol_table_put(table, symbol_new_type("i16", NULL, 1, 2, NULL, 0, I16));
   symbol_table_put(table, symbol_new_type("i32", NULL, 1, 4, NULL, 0, I32));

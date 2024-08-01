@@ -6,6 +6,7 @@
 #include "include/token.h"
 #include <stdlib.h>
 #include <string.h>
+void check_conditional(type_check_t *t, ast_node_T *node);
 void check_if(type_check_t *t, ast_node_T *node);
 void check_block(type_check_t *t, ast_node_T *node);
 void check_value(type_check_t *t, ast_node_T *node);
@@ -114,15 +115,15 @@ void check_expr(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check expression\n");
   log_debug(t->debug, "expr ast node '%s'\n", ast_get_name(node->type));
 
-  // if (node->type == AST_EXPR) {
-  //   node = ((ast_expr_T *)node)->child;
-  // }
-
   switch (node->type) {
   case AST_BIN_OP:
     check_bin_op(t, node);
     break;
+  case AST_CONDITIONAL:
+    check_conditional(t, node);
+    break;
   case AST_SYSCALL:
+    log_todo("check_syscall not implemented yet\n");
     break;
   case AST_IF:
     check_if(t, node);
@@ -131,6 +132,7 @@ void check_expr(type_check_t *t, ast_node_T *node) {
     check_value(t, node);
     break;
 
+  case AST_RETURN:
   case AST_WHILE:
   case AST_DUMP:
   case AST_ASSIGN:
@@ -150,7 +152,6 @@ void check_expr(type_check_t *t, ast_node_T *node) {
   case AST_OP:
   case AST_NO_OP:
   case AST_PROGRAM:
-  case AST_CONDITIONAL:
   case AST_COND_OP:
   case AST_LOGICAL_OP:
   case AST_TYPE_ANNOT:
@@ -306,6 +307,26 @@ void check_block(type_check_t *t, ast_node_T *node) {
     log_debug(t->debug, "stmt #%d: '%s'\n", i,
               ast_get_name(block->expressions[i]->type));
     check_statement(t, block->expressions[i]);
+    if (block->expressions[i]->type == AST_RETURN) {
+      symbol_type_T *ret_type = block->expressions[i]->symbol_type;
+      if (strcmp(ret_type->base.name, "undefined") == 0) {
+        log_error(block->expressions[i]->loc, 1,
+                  "Cannot use undefined symbol as return statement\n");
+      }
+
+      if (node->symbol_type == NULL ||
+          strcmp(node->symbol_type->base.name, ret_type->base.name) == 0) {
+        node->symbol_type = ret_type;
+      } else {
+        log_error(block->expressions[i]->loc, 1,
+                  "Cannot return multiple types: '%s' and '%s'\n",
+                  node->symbol_type->base.name, ret_type->base.name);
+      }
+    }
+  }
+
+  if (node->symbol_type == NULL) {
+    node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, "void");
   }
 }
 
@@ -409,21 +430,79 @@ void check_decl(type_check_t *t, ast_node_T *node) {
   }
 }
 
+void check_conditional(type_check_t *t, ast_node_T *node) {
+  ast_cond_T *cond = (ast_cond_T *)node;
+
+  check_expr(t, cond->lhs);
+  check_expr(t, cond->rhs);
+
+  if (strcmp(cond->lhs->symbol_type->base.name,
+             cond->rhs->symbol_type->base.name) != 0 ||
+      !symbol_can_upgrade_type(cond->lhs->symbol_type->type_cat,
+                               cond->rhs->symbol_type->type_cat)) {
+    ast_cond_op_T *op = (ast_cond_op_T *)cond->op;
+
+    log_error(cond->op->loc, 1,
+              "Cannot do boolean operation '%s' between types '%s' and '%s\n",
+              op->t->value, cond->lhs->symbol_type->base.name,
+              cond->rhs->symbol_type->base.name);
+  }
+
+  node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, "bool");
+}
+
+void check_else(type_check_t *t, ast_node_T *node) {
+  ast_else_T *elze = (ast_else_T *)node;
+  if (elze->block->type == AST_BLOCK) {
+    check_block(t, elze->block);
+  } else {
+    check_statement(t, elze->block);
+  }
+
+  node->symbol_type = elze->block->symbol_type;
+}
+
 void check_if(type_check_t *t, ast_node_T *node) {
-  log_todo("check_if not implemented yet\n");
+  ast_if_T *if_node = (ast_if_T *)node;
+
+  check_expr(t, if_node->cond);
+
+  if (strcmp(if_node->cond->symbol_type->base.name, "bool") != 0) {
+    log_error(if_node->cond->loc, 1,
+              "If condition must be of type 'bool', found '%s'\n",
+              if_node->cond->symbol_type->base.name);
+  }
+
+  check_block(t, if_node->block);
+  node->symbol_type = if_node->block->symbol_type;
+
+  if (if_node->elze != NULL) {
+    check_else(t, if_node->elze);
+    if (strcmp(node->symbol_type->base.name,
+               if_node->elze->symbol_type->base.name) != 0) {
+      log_error(node->loc, 1,
+                "Cannot return multiple values from 'if'/'else if'/'else' "
+                "block. Found '%s' and '%s\n",
+                node->symbol_type->base.name,
+                if_node->elze->symbol_type->base.name);
+    }
+  }
 }
 
 void check_statement(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check statement\n");
   switch (node->type) {
   case AST_SYSCALL:
+    log_todo("check_syscall not implemented yet\n");
     break;
   case AST_IF:
     check_if(t, node);
     break;
   case AST_ASSIGN:
+    log_todo("check_assign not implemented yet\n");
     break;
   case AST_WHILE:
+    log_todo("check_while not implemented yet\n");
     break;
   case AST_DUMP:
     check_dump(t, node);
@@ -432,7 +511,7 @@ void check_statement(type_check_t *t, ast_node_T *node) {
     check_decl(t, node);
     break;
   default:
-    log_error(node->loc, 1, "Unexpected node in expr, found: %s.\n",
+    log_error(node->loc, 1, "Unexpected node in statement, found: %s.\n",
               ast_get_name(node->type));
     break;
   }

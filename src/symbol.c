@@ -6,15 +6,16 @@
 #include <string.h>
 
 unsigned char upgrade_table[TYPE_CAT_COUNT][TYPE_CAT_COUNT] = {
-  //          VOID I8 I16 I32 I64 ARRAY STRING CUSTOM
-  /*VOID  */  {0,   0,  0,  0,  0,  0,  0,  0,},
-  /*I8    */  {0,   1,  1,  1,  1,  0,  0,  0,},
-  /*i16   */  {0,   0,  1,  1,  1,  0,  0,  0,}, 
-  /*i32   */  {0,   0,  0,  1,  1,  0,  0,  0,}, 
-  /*i64   */  {0,   0,  0,  0,  1,  0,  0,  0,}, 
-  /*ARRAY */  {0,   0,  0,  0,  0,  1,  0,  0,}, 
-  /*STRING*/  {0,   0,  0,  0,  0,  0,  1,  0,}, 
-  /*CUSTOM*/  {0,   0,  0,  0,  0,  0,  0,  1,}, 
+  //          VOID BOOL I8 I16 I32 I64 ARRAY STRING CUSTOM
+  /*VOID  */  {0,   0,  0,  0,  0,  0,  0,  0,  0,},
+  /*BOOL  */  {0,   1,  1,  1,  1,  1,  0,  0,  0,},
+  /*I8    */  {0,   1,  1,  1,  1,  1,  0,  0,  0,},
+  /*i16   */  {0,   1,  0,  1,  1,  1,  0,  0,  0,}, 
+  /*i32   */  {0,   1,  0,  0,  1,  1,  0,  0,  0,}, 
+  /*i64   */  {0,   1,  0,  0,  0,  1,  0,  0,  0,}, 
+  /*ARRAY */  {0,   0,  0,  0,  0,  0,  1,  0,  0,}, 
+  /*STRING*/  {0,   0,  0,  0,  0,  0,  0,  1,  0,}, 
+  /*CUSTOM*/  {0,   0,  0,  0,  0,  0,  0,  0,  1,}, 
 };
 
 unsigned char symbol_can_upgrade_type(type_cat_E a, type_cat_E b) {
