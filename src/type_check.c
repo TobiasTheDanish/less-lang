@@ -437,7 +437,7 @@ void check_conditional(type_check_t *t, ast_node_T *node) {
   check_expr(t, cond->rhs);
 
   if (strcmp(cond->lhs->symbol_type->base.name,
-             cond->rhs->symbol_type->base.name) != 0 ||
+             cond->rhs->symbol_type->base.name) != 0 &&
       !symbol_can_upgrade_type(cond->lhs->symbol_type->type_cat,
                                cond->rhs->symbol_type->type_cat)) {
     ast_cond_op_T *op = (ast_cond_op_T *)cond->op;
@@ -489,6 +489,13 @@ void check_if(type_check_t *t, ast_node_T *node) {
   }
 }
 
+void check_return(type_check_t *t, ast_node_T *node) {
+  ast_return_T *ret_node = (ast_return_T *)node;
+
+  check_expr(t, ret_node->value);
+  node->symbol_type = ret_node->value->symbol_type;
+}
+
 void check_statement(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check statement\n");
   switch (node->type) {
@@ -509,6 +516,9 @@ void check_statement(type_check_t *t, ast_node_T *node) {
     break;
   case AST_DECL:
     check_decl(t, node);
+    break;
+  case AST_RETURN:
+    check_return(t, node);
     break;
   default:
     log_error(node->loc, 1, "Unexpected node in statement, found: %s.\n",

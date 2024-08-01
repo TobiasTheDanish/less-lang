@@ -19,7 +19,7 @@ unsigned char upgrade_table[TYPE_CAT_COUNT][TYPE_CAT_COUNT] = {
 };
 
 unsigned char symbol_can_upgrade_type(type_cat_E a, type_cat_E b) {
-  return upgrade_table[a][b];
+  return upgrade_table[a][b] || upgrade_table[b][a];
 }
 
 symbol_T *symbol_new(char *name, symbol_E type, location_T *loc) {

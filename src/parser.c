@@ -73,6 +73,7 @@ ast_node_T *value(parser_T *parser) {
   log_debug(parser->debug, "Parse value\n");
   ast_node_T *res;
   token_T *token = parser->tokens[parser->t_index];
+  log_debug(parser->debug, "value token: %p\n", token);
 
   switch (token->type) {
   case T_POINTER:
@@ -172,6 +173,8 @@ ast_node_T *factor(parser_T *parser) {
     current = parser->tokens[parser->t_index];
   }
 
+  log_debug(parser->debug, "factor is type '%s'\n", ast_get_name(res->type));
+
   return res;
 }
 
@@ -185,6 +188,7 @@ ast_node_T *term(parser_T *parser) {
     current = parser->tokens[parser->t_index];
   }
 
+  log_debug(parser->debug, "term is type '%s'\n", ast_get_name(res->type));
   return res;
 }
 
@@ -214,6 +218,7 @@ ast_node_T *dump(parser_T *parser) {
 
 // cond_op : (EQUALS | NOT_EQUALS | LESS | GREATER);
 ast_node_T *cond_op(parser_T *parser) {
+  log_debug(parser->debug, "parse cond op\n");
   ast_node_T *res;
   token_T *token = parser->tokens[parser->t_index];
 
@@ -269,15 +274,27 @@ ast_node_T *logical_op(parser_T *parser) {
 // conditional : (array_element | value | bin_op | prop) cond_op (value | bin_op
 // | prop | array_element) (logical_op conditional)* ;
 ast_node_T *conditional(parser_T *parser) {
+  log_debug(parser->debug, "parse conditional\n");
   ast_node_T *lhs = term(parser);
-
+  log_debug(parser->debug, "Hello\n");
   token_T *next = parser->tokens[parser->t_index];
-  while (token_is_logical(next)) {
+  if (token_is_bool_op(next)) {
+    log_debug(parser->debug, "found bool op\n");
     ast_node_T *operation = cond_op(parser);
     lhs = ast_new_cond(lhs, operation, term(parser));
+    log_debug(parser->debug, "parsed bool op, lhs is type '%s'\n",
+              ast_get_name(lhs->type));
+  }
+
+  next = parser->tokens[parser->t_index];
+  while (token_is_logical(next)) {
+    consume(parser, next->type);
+    lhs = ast_new_cond(lhs, ast_new_cond_op(next), expr(parser));
     next = parser->tokens[parser->t_index];
   }
 
+  log_debug(parser->debug, "parse conditional, lhs is type '%s'\n",
+            ast_get_name(lhs->type));
   return lhs;
 }
 
@@ -292,6 +309,8 @@ ast_node_T *block(parser_T *parser) {
 
     while (token->type != T_RCURLY) {
       expressions[count++] = statement(parser);
+      log_debug(parser->debug, "block statement #%d: type is '%s'\n",
+                (count - 1), ast_get_name(expressions[count - 1]->type));
 
       expressions = realloc(expressions, (count + 1) * sizeof(ast_node_T *));
 
@@ -579,6 +598,7 @@ ast_node_T *func_call(parser_T *parser) {
     log_error(ident->loc, 1, "Non identifier symbol '%s' used as struct name\n",
               ident->value);
   }
+  consume(parser, T_IDENT);
   consume(parser, T_LPAREN);
 
   ast_node_T **params = calloc(1, sizeof(ast_node_T *));
@@ -682,10 +702,16 @@ ast_node_T *expr(parser_T *parser) {
 }
 
 ast_node_T *return_stmt(parser_T *parser) {
-  token_T *ret_token = parser->tokens[parser->t_count];
+  token_T *ret_token = parser->tokens[parser->t_index];
+  log_debug(parser->debug, "return statement: ret_token: %p\n", ret_token);
+  log_debug(parser->debug,
+            "parse return statement: ret_token token type is '%s'\n",
+            token_get_name(ret_token->type));
   consume(parser, T_RETURN);
 
   ast_node_T *ret_val = expr(parser);
+  log_debug(parser->debug, "parse return statement, ret_val type is '%s'\n",
+            ast_get_name(ret_val->type));
 
   return ast_new_return_stmt(ret_token, ret_val);
 }
@@ -737,6 +763,9 @@ ast_node_T *statement(parser_T *parser) {
     log_error(token->loc, 1, "Statement cannot begin with token '%s'\n",
               token_get_name(token->type));
   }
+
+  log_debug(parser->debug, "type of statement is '%s'\n",
+            ast_get_name(child->type));
 
   return child;
 }

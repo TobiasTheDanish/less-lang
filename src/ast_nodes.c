@@ -1,4 +1,5 @@
 #include "include/ast_nodes.h"
+#include "include/logger.h"
 #include "include/token.h"
 #include <stdlib.h>
 
@@ -318,6 +319,8 @@ ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs) {
 }
 
 ast_node_T *ast_new_return_stmt(token_T *token, ast_node_T *value) {
+  log_debug(1, "token->loc: %p\n", token->loc);
+  log_debug(1, "ast_new_return_stmt: token: %p, value: %p\n", token, value);
   ast_return_T *ret = malloc(sizeof(ast_return_T));
   ret->base = ast_new(AST_RETURN, token->loc);
   ret->token = token;

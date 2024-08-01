@@ -63,4 +63,5 @@ char *token_get_name(token_E type);
 
 bool token_is_op(token_T *token);
 bool token_is_logical(token_T *token);
+bool token_is_bool_op(token_T *token);
 #endif // !TOKEN_H

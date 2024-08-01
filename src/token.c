@@ -60,7 +60,10 @@ bool token_is_op(token_T *token) {
 }
 
 bool token_is_logical(token_T *token) {
-  return token->type == T_AND || token->type == T_OR ||
-         token->type == T_EQUALS || token->type == T_NOT_EQUALS ||
+  return token->type == T_AND || token->type == T_OR;
+}
+
+bool token_is_bool_op(token_T *token) {
+  return token->type == T_EQUALS || token->type == T_NOT_EQUALS ||
          token->type == T_LESS || token->type == T_GREATER;
 }
