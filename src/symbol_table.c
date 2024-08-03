@@ -61,6 +61,21 @@ symbol_T *symbol_table_get(symbol_table_T *table, char *name) {
   return NULL;
 }
 
+symbol_T **symbol_table_get_params(symbol_table_T *table, size_t *count) {
+  symbol_T **res = malloc(sizeof(symbol_T *));
+  *count = 0;
+  for (size_t i = 0; i < table->count; i++) {
+    symbol_T *current = table->symbols[i];
+    if (current->type == SYM_VAR && ((symbol_var_T *)current)->is_param) {
+      res[*count] = current;
+      *count = (*count) + 1;
+      res = realloc(res, ((*count) + 1) * sizeof(symbol_T *));
+    }
+  }
+
+  return res;
+}
+
 size_t symbol_table_calc_index(symbol_table_T *table) {
   if (table->parent != NULL) {
     return table->count + symbol_table_calc_index(table->parent);

@@ -72,6 +72,8 @@ typedef struct SYMBOL_FUNC_STRUCT {
   symbol_T *ret_type;
 } symbol_func_T;
 
+symbol_type_T *symbol_upgrade_type(symbol_type_T *a, symbol_type_T *b);
+
 symbol_T *symbol_new(char *name, symbol_E type, location_T *loc);
 
 symbol_T *symbol_new_type(char *name, location_T *loc,

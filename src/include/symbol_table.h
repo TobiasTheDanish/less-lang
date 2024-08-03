@@ -25,6 +25,8 @@ void symbol_table_init_builtins(symbol_table_T *table);
 
 symbol_T *symbol_table_get(symbol_table_T *table, char *name);
 
+symbol_T **symbol_table_get_params(symbol_table_T *table, size_t *count);
+
 void symbol_table_put(symbol_table_T *table, symbol_T *symbol);
 
 bool symbol_table_contains(symbol_table_T *table, char *name);

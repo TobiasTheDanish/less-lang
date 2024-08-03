@@ -40,6 +40,7 @@ typedef struct AST_NODE_STRUCT {
   ast_node_E type;
   location_T *loc;
   symbol_type_T *symbol_type;
+  symbol_type_T *elem_type;
 } ast_node_T;
 
 typedef struct AST_NODE_PROGRAM {

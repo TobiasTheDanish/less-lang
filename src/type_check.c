@@ -111,6 +111,94 @@ void check_bin_op(type_check_t *t, ast_node_T *node) {
   node->symbol_type = bin_op->lhs->symbol_type;
 }
 
+void check_func_call(type_check_t *t, ast_node_T *node) {
+  ast_func_call_T *func_node = (ast_func_call_T *)node;
+
+  symbol_T *ident_symbol = symbol_table_get(t->table, func_node->ident->value);
+  if (ident_symbol->type != SYM_FUNC) {
+    log_error(func_node->ident->loc, 1, "Symbol '%s' is not callable\n",
+              func_node->ident->value);
+  }
+  symbol_func_T *func_symbol = (symbol_func_T *)ident_symbol;
+
+  size_t func_param_count = 0;
+  symbol_T **func_params =
+      symbol_table_get_params(func_symbol->scope, &func_param_count);
+
+  if (func_node->param_count < func_param_count) {
+    log_error(func_node->ident->loc, 1,
+              "Too few argmuments passed to function '%s'. Expected '%d', but "
+              "found '%d'\n",
+              func_node->ident->value, func_param_count,
+              func_node->param_count);
+  } else if (func_node->param_count > func_param_count) {
+    log_error(func_node->ident->loc, 1,
+              "Too many argmuments passed to function '%s'. Expected '%d', but "
+              "found '%d'\n",
+              func_node->ident->value, func_param_count,
+              func_node->param_count);
+  }
+
+  for (size_t i = 0; i < func_node->param_count; i++) {
+    symbol_var_T *param_symbol = (symbol_var_T *)func_params[i];
+    ast_node_T *arg = func_node->params[i];
+    check_expr(t, arg);
+    if (strcmp(arg->symbol_type->base.name, param_symbol->type->name) != 0 &&
+        !symbol_can_upgrade_type(
+            arg->symbol_type->type_cat,
+            ((symbol_type_T *)param_symbol->type)->type_cat)) {
+      log_error(arg->loc, 1,
+                "Cannot use expression of type '%s' as argument of type '%s'\n",
+                arg->symbol_type->base.name, param_symbol->type->name);
+    }
+  }
+
+  node->symbol_type = (symbol_type_T *)func_symbol->ret_type;
+}
+
+void check_array_init(type_check_t *t, ast_node_T *node) {
+  log_debug(t->debug, "type check array element\n");
+  ast_array_element_T *array_node = (ast_array_element_T *)node;
+  symbol_type_T *array_elem_symbol =
+      (symbol_type_T *)symbol_table_get(t->table, array_node->ident->value);
+
+  check_expr(t, array_node->offset);
+  if (array_node->offset->symbol_type->type_cat < I8 ||
+      array_node->offset->symbol_type->type_cat > I64) {
+    log_error(array_node->offset->loc, 1, "Array length must be an integer\n");
+  }
+
+  node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, "array");
+  node->elem_type = array_elem_symbol;
+
+  log_todo("check_array_init not implemented yet\n");
+}
+
+void check_array_element(type_check_t *t, ast_node_T *node) {
+  log_debug(t->debug, "type check array element\n");
+  ast_array_element_T *elem_node = (ast_array_element_T *)node;
+  symbol_T *array_symbol = symbol_table_get(t->table, elem_node->ident->value);
+
+  if (array_symbol->type != SYM_VAR && array_symbol->type != SYM_VAR_TYPE) {
+    log_error(array_symbol->loc, 1, "Symbol '%s' cannot be used as array\n",
+              array_symbol->name);
+  }
+
+  if (array_symbol->type == SYM_VAR_TYPE) {
+    return check_array_init(t, node);
+  }
+
+  symbol_var_T *array_var_symbol = (symbol_var_T *)array_symbol;
+
+  if (strcmp(array_var_symbol->type->name, "array") != 0) {
+    log_error(array_symbol->loc, 1,
+              "Symbol of '%s' cannot be used as an array\n",
+              array_var_symbol->type->name);
+  }
+
+  log_todo("check_array_element not implemented yet\n");
+}
+
 void check_expr(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check expression\n");
   log_debug(t->debug, "expr ast node '%s'\n", ast_get_name(node->type));
@@ -131,6 +219,12 @@ void check_expr(type_check_t *t, ast_node_T *node) {
   case AST_VALUE:
     check_value(t, node);
     break;
+  case AST_FUNC_CALL:
+    check_func_call(t, node);
+    break;
+  case AST_ARRAY_ELEMENT:
+    check_array_element(t, node);
+    break;
 
   case AST_RETURN:
   case AST_WHILE:
@@ -139,13 +233,11 @@ void check_expr(type_check_t *t, ast_node_T *node) {
   case AST_DECL:
   case AST_VAR_DECL:
   case AST_FUNC_DECL:
-  case AST_FUNC_CALL:
   case AST_CONST_DECL:
   case AST_STRUCT_INIT:
   case AST_ATTRIBUTE:
   case AST_ARRAY:
   case AST_PROP:
-  case AST_ARRAY_ELEMENT:
   case AST_ELSE:
   case AST_BLOCK:
   case AST_EXPR:
@@ -186,7 +278,12 @@ void check_type_annot(type_check_t *t, ast_node_T *node) {
   } else {
     type = (symbol_type_T *)symbol_table_get(t->table, "undefined");
   }
-  node->symbol_type = type;
+  if (type_annot->is_array) {
+    node->elem_type = type;
+    node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, "array");
+  } else {
+    node->symbol_type = type;
+  }
 }
 
 void check_param_list(type_check_t *t, ast_node_T *node) {
@@ -281,6 +378,7 @@ void check_func_decl(type_check_t *t, ast_node_T *node) {
           v->t->value);
     }
     node->symbol_type = type->symbol_type;
+    node->elem_type = type->elem_type;
   } else {
     node->symbol_type = (symbol_type_T *)symbol_table_get(t->table, "void");
   }
@@ -291,6 +389,9 @@ void check_func_decl(type_check_t *t, ast_node_T *node) {
   }
 
   check_block(t, decl->children[0]);
+  ((symbol_func_T *)func_symbol)->ret_type =
+      (symbol_T *)decl->children[0]->symbol_type;
+  node->symbol_type = decl->children[0]->symbol_type;
 
   t->table = parent_scope;
 
@@ -401,10 +502,12 @@ void check_var_decl(type_check_t *t, ast_node_T *node) {
     }
   } else {
     node->symbol_type = value->symbol_type;
+    node->elem_type = value->elem_type;
   }
 
   symbol_T *var_symbol = symbol_new_var(
       v->t->value, v->t->loc, (symbol_T *)node->symbol_type, is_mut, 0, 0, 0);
+  ((symbol_var_T *)var_symbol)->elem_type = (symbol_T *)node->elem_type;
   symbol_table_put(t->table, var_symbol);
 }
 
@@ -496,6 +599,53 @@ void check_return(type_check_t *t, ast_node_T *node) {
   node->symbol_type = ret_node->value->symbol_type;
 }
 
+void check_assign(type_check_t *t, ast_node_T *node) {
+  ast_assign_T *assign = (ast_assign_T *)node;
+
+  check_expr(t, assign->lhs);
+  symbol_type_T *lhs_type = assign->lhs->symbol_type;
+  if (strcmp(lhs_type->base.name, "undefined") == 0) {
+    log_error(assign->lhs->loc, 1, "Cannot assign to undefined variable\n");
+  }
+
+  check_expr(t, assign->value);
+  symbol_type_T *rhs_type = assign->value->symbol_type;
+
+  if (strcmp(rhs_type->base.name, "undefined") == 0) {
+    log_error(assign->value->loc, 1, "Use of undefined symbol\n");
+  } else if (strcmp(rhs_type->base.name, lhs_type->base.name) != 0 &&
+             !symbol_can_upgrade_type(lhs_type->type_cat, rhs_type->type_cat)) {
+    log_error(assign->ident->loc, 1,
+              "Cannot assign value of type '%s' to symbol of type '%s'\n",
+              rhs_type->base.name, lhs_type->base.name);
+  } else if (lhs_type->type_cat == ARRAY &&
+             strcmp(assign->lhs->elem_type->base.name,
+                    assign->value->elem_type->base.name) != 0) {
+    log_error(assign->ident->loc, 1,
+              "Cannot assign type '%s array' to symbol of type '%s array'\n",
+              assign->value->elem_type->base.name,
+              assign->lhs->elem_type->base.name);
+  }
+
+  assign->lhs->symbol_type = symbol_upgrade_type(lhs_type, rhs_type);
+  node->symbol_type = assign->lhs->symbol_type;
+  node->elem_type = assign->lhs->elem_type;
+}
+
+void check_while(type_check_t *t, ast_node_T *node) {
+  ast_while_T *while_node = (ast_while_T *)node;
+
+  check_expr(t, while_node->cond);
+  if (strcmp(while_node->cond->symbol_type->base.name, "bool") != 0) {
+    log_error(while_node->cond->loc, 1,
+              "If condition must be of type 'bool', found '%s'\n",
+              while_node->cond->symbol_type->base.name);
+  }
+
+  check_block(t, while_node->block);
+  node->symbol_type = while_node->block->symbol_type;
+}
+
 void check_statement(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check statement\n");
   switch (node->type) {
@@ -506,10 +656,10 @@ void check_statement(type_check_t *t, ast_node_T *node) {
     check_if(t, node);
     break;
   case AST_ASSIGN:
-    log_todo("check_assign not implemented yet\n");
+    check_assign(t, node);
     break;
   case AST_WHILE:
-    log_todo("check_while not implemented yet\n");
+    check_while(t, node);
     break;
   case AST_DUMP:
     check_dump(t, node);

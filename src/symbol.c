@@ -22,6 +22,14 @@ unsigned char symbol_can_upgrade_type(type_cat_E a, type_cat_E b) {
   return upgrade_table[a][b] || upgrade_table[b][a];
 }
 
+symbol_type_T *symbol_upgrade_type(symbol_type_T *a, symbol_type_T *b) {
+  if (a->type_cat > b->type_cat) {
+    return a;
+  } else {
+    return b;
+  }
+}
+
 symbol_T *symbol_new(char *name, symbol_E type, location_T *loc) {
   symbol_T *s = malloc(sizeof(symbol_T));
 

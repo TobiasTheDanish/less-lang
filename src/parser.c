@@ -65,6 +65,11 @@ ast_node_T *type_annotation(parser_T *parser) {
 
   unsigned char is_array = (parser->tokens[parser->t_index]->type == T_LSQUARE);
 
+  if (is_array) {
+    consume(parser, T_LSQUARE);
+    consume(parser, T_RSQUARE);
+  }
+
   return ast_new_type_annot(annot_token, type, is_array);
 }
 
@@ -347,7 +352,7 @@ ast_node_T *else_block(parser_T *parser, size_t index) {
 ast_node_T *while_block(parser_T *parser) {
   size_t index = ++parser->if_count;
   consume(parser, T_WHILE);
-  ast_node_T *cond = conditional(parser);
+  ast_node_T *cond = expr(parser);
   ast_node_T *b = block(parser);
 
   return ast_new_while(index, cond, b);
@@ -608,6 +613,9 @@ ast_node_T *func_call(parser_T *parser) {
     params[count] = arg(parser);
     count += 1;
     params = realloc(params, (count + 1) * sizeof(ast_node_T *));
+    if (parser->tokens[parser->t_index]->type == T_COMMA) {
+      consume(parser, T_COMMA);
+    }
   }
   consume(parser, T_RPAREN);
 
