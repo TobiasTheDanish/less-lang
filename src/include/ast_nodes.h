@@ -17,6 +17,7 @@ typedef enum AST_NODE_E {
   AST_FUNC_PARAM,
   AST_FUNC_CALL,
   AST_STRUCT_INIT,
+  AST_ATTRIBUTE_LIST,
   AST_ATTRIBUTE,
   AST_ASSIGN,
   AST_WHILE,
@@ -39,8 +40,7 @@ typedef enum AST_NODE_E {
 typedef struct AST_NODE_STRUCT {
   ast_node_E type;
   location_T *loc;
-  symbol_type_T *symbol_type;
-  symbol_type_T *elem_type;
+  symbol_T *symbol_type;
 } ast_node_T;
 
 typedef struct AST_NODE_PROGRAM {
@@ -82,6 +82,13 @@ typedef struct AST_NODE_STRUCT_INIT {
   size_t attr_count;
   token_T *ident;
 } ast_struct_init_T;
+
+typedef struct AST_NODE_ATTRIBUTE_LIST {
+  ast_node_T base;
+  ast_node_T **children;
+  size_t child_count;
+  size_t alignment;
+} ast_attribute_list_T;
 
 typedef struct AST_NODE_ATTRIBUTE {
   ast_node_T base;
@@ -214,6 +221,7 @@ typedef struct AST_NODE_PROP {
   token_T *dot;
   ast_node_T *lhs;
   ast_node_T *rhs;
+  token_T *rhs_token;
 } ast_prop_T;
 
 typedef struct AST_NODE_RETURN {
@@ -240,6 +248,8 @@ ast_node_T *ast_new_func_call(token_T *ident, ast_node_T **params,
                               size_t param_count);
 ast_node_T *ast_new_struct_init(ast_node_T **attributes, size_t attr_count,
                                 token_T *ident);
+ast_node_T *ast_new_attribute_list(location_T *loc, ast_node_T **attribs,
+                                   size_t count);
 ast_node_T *ast_new_attribute(token_T *name, ast_node_T *value);
 ast_node_T *ast_new_var_decl(ast_node_T *assign);
 ast_node_T *ast_new_const_decl(token_T *ident, ast_node_T *value, char *type);
@@ -256,7 +266,8 @@ ast_node_T *ast_new_op(token_T *t);
 ast_node_T *ast_new_value(token_T *t);
 ast_node_T *ast_new_array(ast_node_T *ident, ast_node_T *len);
 ast_node_T *ast_new_array_element(token_T *ident, ast_node_T *offset);
-ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs);
+ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs,
+                         token_T *rhs_token);
 ast_node_T *ast_new_dump(ast_node_T *value);
 ast_node_T *ast_new_return_stmt(token_T *token, ast_node_T *value);
 

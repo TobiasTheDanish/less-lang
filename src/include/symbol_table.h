@@ -9,7 +9,7 @@ typedef struct SYMBOL_TABLE_STRUCT {
   char *name;
   size_t level;
 
-  symbol_T **symbols;
+  symbol_T *symbols;
   size_t count;
 
   struct SYMBOL_TABLE_STRUCT *parent;
@@ -25,9 +25,11 @@ void symbol_table_init_builtins(symbol_table_T *table);
 
 symbol_T *symbol_table_get(symbol_table_T *table, char *name);
 
-symbol_T **symbol_table_get_params(symbol_table_T *table, size_t *count);
+symbol_T *symbol_table_get_params(symbol_table_T *table, size_t *count);
 
-void symbol_table_put(symbol_table_T *table, symbol_T *symbol);
+void symbol_table_put(symbol_table_T *table, symbol_T symbol);
+
+void symbol_table_update(symbol_table_T *table, symbol_T symbol);
 
 bool symbol_table_contains(symbol_table_T *table, char *name);
 

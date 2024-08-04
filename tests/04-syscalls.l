@@ -1,5 +1,5 @@
 func main() {
-	let abc = i8[4];
+	let abc = i8[2+2];
 	abc[0] = 65;
 	abc[1] = 66;
 	abc[2] = 67;

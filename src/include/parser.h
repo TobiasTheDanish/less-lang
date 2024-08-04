@@ -7,6 +7,13 @@
 #include "symbol_table.h"
 #include "token.h"
 
+typedef enum PARSER_CONTEXT_ENUM {
+  CONTEXT_NONE,
+  CONTEXT_IF,
+  CONTEXT_WHILE,
+  CONTEXT_ASSIGN,
+} context_E;
+
 typedef struct PARSER_STRUCT {
   lexer_T *lexer;
   token_T **tokens;
@@ -14,6 +21,7 @@ typedef struct PARSER_STRUCT {
   size_t t_index;
   size_t if_count;
   unsigned char debug;
+  context_E context;
 } parser_T;
 
 parser_T *parser_new(lexer_T *lexer, size_t t_count, unsigned char debug);

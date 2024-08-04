@@ -5,8 +5,9 @@
 
 ast_node_T ast_new(ast_node_E type, location_T *loc) {
   ast_node_T base = {
-      type = type,
-      loc = loc,
+      .type = type,
+      .loc = loc,
+      .symbol_type = NULL,
   };
 
   return base;
@@ -81,6 +82,16 @@ ast_node_T *ast_new_struct_init(ast_node_T **attributes, size_t attr_count,
   node->attributes = attributes;
   node->attr_count = attr_count;
   node->ident = ident;
+
+  return (ast_node_T *)node;
+}
+
+ast_node_T *ast_new_attribute_list(location_T *loc, ast_node_T **attribs,
+                                   size_t count) {
+  ast_attribute_list_T *node = malloc(sizeof(ast_attribute_list_T));
+  node->base = ast_new(AST_ATTRIBUTE_LIST, loc);
+  node->children = attribs;
+  node->child_count = count;
 
   return (ast_node_T *)node;
 }
@@ -306,7 +317,8 @@ ast_node_T *ast_new_array_element(token_T *ident, ast_node_T *offset) {
   return (ast_node_T *)e;
 }
 
-ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs) {
+ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs,
+                         token_T *rhs_token) {
   ast_node_T base = ast_new(AST_PROP, dot->loc);
 
   ast_prop_T *p = malloc(sizeof(ast_prop_T));
@@ -314,6 +326,7 @@ ast_node_T *ast_new_prop(token_T *dot, ast_node_T *lhs, ast_node_T *rhs) {
   p->lhs = lhs;
   p->dot = dot;
   p->rhs = rhs;
+  p->rhs_token = rhs_token;
 
   return (ast_node_T *)p;
 }
@@ -343,7 +356,8 @@ char *ast_get_name(ast_node_E type) {
                    "Function parameter",
                    "Function call",
                    "Struct initialization",
-                   "Struct property initialization",
+                   "Struct property list",
+                   "Struct property",
                    "Assign",
                    "While",
                    "If",

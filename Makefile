@@ -2,7 +2,7 @@ exec = lessl
 
 sources = $(wildcard src/*.c)
 objects = $(sources:.c=.o)
-flags = -g -Wall
+flags = -g -ggdb -Wall
 
 $(exec): $(objects)
 	gcc $(objects) $(flags) -o $(exec)

@@ -9,6 +9,7 @@
 #include <string.h>
 #include <strings.h>
 
+ast_node_T *struct_init(parser_T *parser);
 ast_node_T *func_call(parser_T *parser);
 ast_node_T *syscall(parser_T *parser);
 ast_node_T *array_expr(parser_T *parser);
@@ -147,7 +148,8 @@ ast_node_T *op(parser_T *parser) {
   return res;
 }
 
-// factor: (func_call | value | prop | array_element) (('*' | '/´) factor)*
+// factor: (func_call | value | prop | array_element | struct_init) (('*' | '/´)
+// factor)*
 ast_node_T *factor(parser_T *parser) {
   token_T *next = parser->tokens[(parser->t_index + 1) % parser->t_count];
   ast_node_T *res;
@@ -155,6 +157,9 @@ ast_node_T *factor(parser_T *parser) {
     res = array_element(parser);
   } else if (next->type == T_LPAREN) {
     res = func_call(parser);
+  } else if (next->type == T_LCURLY && parser->context != CONTEXT_IF &&
+             parser->context != CONTEXT_WHILE) {
+    res = struct_init(parser);
   } else {
     res = value(parser);
   }
@@ -162,19 +167,14 @@ ast_node_T *factor(parser_T *parser) {
   token_T *current = parser->tokens[parser->t_index];
   if (current->type == T_DOT) {
     consume(parser, T_DOT);
-    res = ast_new_prop(current, res, expr(parser));
-  }
-
-  current = parser->tokens[parser->t_index];
-  if (current->type == T_ASSIGN) {
-    consume(parser, T_ASSIGN);
-    res = ast_new_assign(current, res, expr(parser));
+    token_T *t = parser->tokens[parser->t_index];
+    res = ast_new_prop(current, res, factor(parser), t);
   }
 
   while (current->type == T_MULTIPLY || current->type == T_DIVIDE ||
          current->type == T_MODULUS) {
     ast_node_T *op_node = op(parser);
-    res = ast_new_bin_op(res, op_node, expr(parser));
+    res = ast_new_bin_op(res, op_node, factor(parser));
     current = parser->tokens[parser->t_index];
   }
 
@@ -352,7 +352,11 @@ ast_node_T *else_block(parser_T *parser, size_t index) {
 ast_node_T *while_block(parser_T *parser) {
   size_t index = ++parser->if_count;
   consume(parser, T_WHILE);
+
+  parser->context = CONTEXT_WHILE;
   ast_node_T *cond = expr(parser);
+  parser->context = CONTEXT_NONE;
+
   ast_node_T *b = block(parser);
 
   return ast_new_while(index, cond, b);
@@ -362,7 +366,11 @@ ast_node_T *while_block(parser_T *parser) {
 ast_node_T *if_block(parser_T *parser) {
   size_t index = parser->if_count++;
   consume(parser, T_IF);
+
+  parser->context = CONTEXT_IF;
   ast_node_T *cond = expr(parser);
+  parser->context = CONTEXT_NONE;
+
   ast_node_T *b = block(parser);
   ast_node_T *elze = NULL;
 
@@ -473,6 +481,13 @@ ast_node_T *const_decl(parser_T *parser) {
   if (parser->tokens[parser->t_index]->type == T_COLON) {
     children[child_count++] = type_annotation(parser);
   }
+
+  if (parser->tokens[parser->t_index]->type != T_ASSIGN) {
+    log_error(children[0]->loc, 1,
+              "Const identifier must be initialized upon declaration\n");
+  }
+
+  consume(parser, T_ASSIGN);
 
   children[child_count++] = expr(parser);
 
@@ -600,7 +615,8 @@ ast_node_T *func_call(parser_T *parser) {
   log_debug(parser->debug, "parse func call\n");
   token_T *ident = parser->tokens[parser->t_index];
   if (ident->type != T_IDENT) {
-    log_error(ident->loc, 1, "Non identifier symbol '%s' used as struct name\n",
+    log_error(ident->loc, 1,
+              "Non identifier symbol '%s' used as function name\n",
               ident->value);
   }
   consume(parser, T_IDENT);
@@ -637,6 +653,29 @@ ast_node_T *decl_attribute(parser_T *parser, size_t offset) {
   return ast_new_attribute(ident, type);
 }
 
+ast_node_T *attribute_list(parser_T *parser) {
+  token_T *start_token = parser->tokens[parser->t_index];
+  consume(parser, T_LCURLY);
+
+  size_t struct_size = 0;
+  ast_node_T **attribs = malloc(sizeof(ast_node_T *));
+  size_t count = 0;
+  token_T *token = parser->tokens[parser->t_index];
+
+  while (token->type != T_RCURLY) {
+    ast_node_T *attr = decl_attribute(parser, struct_size);
+
+    attribs[count++] = attr;
+    attribs = realloc(attribs, (count + 1) * sizeof(ast_node_T *));
+
+    token = parser->tokens[parser->t_index];
+  }
+
+  consume(parser, T_RCURLY);
+
+  return ast_new_attribute_list(start_token->loc, attribs, count);
+}
+
 // struct_decl : STRUCT ID LCURLY (attribute)* RCURLY ;
 ast_node_T *struct_decl(parser_T *parser) {
   log_debug(parser->debug, "parser struct_decl\n");
@@ -654,51 +693,31 @@ ast_node_T *struct_decl(parser_T *parser) {
 
   children[child_count++] = value(parser);
 
-  if (parser->tokens[parser->t_index]->type == T_COLON) {
-    children[child_count++] = type_annotation(parser);
-  }
+  children[child_count++] = attribute_list(parser);
 
-  children[child_count++] = expr(parser);
-
-  consume(parser, T_LCURLY);
-
-  size_t struct_size = 0;
-  ast_node_T **props = malloc(sizeof(ast_node_T *));
-  size_t prop_count = 0;
-  token_T *token = parser->tokens[parser->t_index];
-
-  while (token->type != T_RCURLY) {
-    ast_node_T *attr = decl_attribute(parser, struct_size);
-
-    props[prop_count++] = attr;
-    props = realloc(props, (prop_count + 1) * sizeof(ast_node_T *));
-
-    token = parser->tokens[parser->t_index];
-  }
-
-  consume(parser, T_RCURLY);
-
-  return ast_new_decl(decl_token, props, prop_count);
+  return ast_new_decl(decl_token, children, child_count);
 }
 
 // expr : syscall SEMI | if | while |
 //  bin_op SEMI | func_call SEMI ;
 ast_node_T *expr(parser_T *parser) {
   token_T *token = parser->tokens[parser->t_index];
+  ast_node_T *res;
 
   switch (token->type) {
   case T_SYSCALL:
-    return syscall(parser);
+    res = syscall(parser);
     break;
   case T_IF:
-    return if_block(parser);
+    res = if_block(parser);
     break;
   case T_IDENT:
   case T_INTEGER:
+  case T_STRING:
+  case T_CHAR:
   case T_POINTER: {
-    return conditional(parser);
-    break;
-  }
+    res = conditional(parser);
+  } break;
 
   default:
     log_error(token->loc, 1,
@@ -706,7 +725,16 @@ ast_node_T *expr(parser_T *parser) {
               "expression.\n",
               token_get_name(token->type));
   }
-  return NULL;
+
+  token_T *current = parser->tokens[parser->t_index];
+  if (current->type == T_ASSIGN) {
+    consume(parser, T_ASSIGN);
+    parser->context = CONTEXT_ASSIGN;
+    res = ast_new_assign(current, res, expr(parser));
+    parser->context = CONTEXT_NONE;
+  }
+
+  return res;
 }
 
 ast_node_T *return_stmt(parser_T *parser) {

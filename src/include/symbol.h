@@ -42,7 +42,9 @@ typedef struct SYMBOL_VAR_STRUCT {
 typedef struct SYMBOL_VAR_TYPE_STRUCT {
   type_cat_E type_cat;
   symbol_T *underlying_type;
+  symbol_table_T *scope;
   char *operand;
+  unsigned char is_comptime;
   unsigned char is_primitive;
   size_t size;
   size_t alignment;
@@ -65,17 +67,18 @@ typedef struct SYMBOL_BASE_STRUCT {
   };
 } symbol_T;
 
-symbol_type_T *symbol_upgrade_type(symbol_type_T *a, symbol_type_T *b);
+symbol_T *symbol_upgrade_type(symbol_T *a, symbol_T *b);
 
 symbol_T *symbol_new(char *name, symbol_E type, location_T *loc);
 
 symbol_T symbol_new_type(char *name, location_T *loc,
-                          unsigned char is_primitive, size_t size, size_t alignment,
-                          symbol_T *underlying, type_cat_E type_cat);
+                         unsigned char is_primitive, size_t size,
+                         size_t alignment, symbol_T *underlying,
+                         type_cat_E type_cat);
 
-symbol_T symbol_new_var(char *name, location_T *loc, symbol_T *type,
-                         unsigned char is_mut, unsigned char is_param,
-                         unsigned char is_const, char *const_val);
+symbol_T symbol_new_var(char *name, location_T *loc, symbol_T type,
+                        unsigned char is_mut, unsigned char is_param,
+                        unsigned char is_const, char *const_val);
 
 symbol_T symbol_new_func(char *name, symbol_table_T *scope, location_T *loc);
 

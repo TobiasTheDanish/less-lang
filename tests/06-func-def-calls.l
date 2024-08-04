@@ -11,7 +11,7 @@ func add(mut a: i32, b: i32) {
 }
 
 func main() {
-	let num1 = 35;
+	let num1: i32 = 35;
 	let num2 = 34;
 	num1.add(num2);
 	let str = "Hello world\n";

@@ -1,5 +1,5 @@
 struct User {
-	id: i32;
+	id: i16;
 	name: string;
 }
 
@@ -13,6 +13,7 @@ func printUser(user: User) {
 }
 
 func main() {
-	let user = User{ id: 1, name: "Tobias\n" };
+	let mut user = User{ id: 1, name: "Tobias\n" };
+	user = User{ id: 256, name: "Tobias\n" };
 	printUser(user);
 }
