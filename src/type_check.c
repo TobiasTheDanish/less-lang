@@ -531,6 +531,8 @@ void check_func_decl(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check function declaration\n");
   node->symbol_type = malloc(sizeof(symbol_T));
   ast_decl_T *decl = (ast_decl_T *)node;
+  size_t start_child_count = decl->child_count;
+  ast_node_T **start_child_ptr = decl->children;
 
   if (decl->child_count == 0 || decl->children[0]->type != AST_VALUE) {
     log_error(decl->token->loc, 1,
@@ -641,6 +643,8 @@ void check_func_decl(type_check_t *t, ast_node_T *node) {
   if (t->debug) {
     symbol_table_print(func_scope);
   }
+  decl->children = start_child_ptr;
+  decl->child_count = start_child_count;
 }
 
 void check_block(type_check_t *t, ast_node_T *node) {
@@ -677,6 +681,8 @@ void check_block(type_check_t *t, ast_node_T *node) {
 void check_const_decl(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check const decl\n");
   ast_decl_T *decl = (ast_decl_T *)node;
+  size_t start_child_count = decl->child_count;
+  ast_node_T **start_child_ptr = decl->children;
 
   if (decl->child_count == 0 || decl->children[0]->type != AST_VALUE) {
     log_error(decl->token->loc, 1,
@@ -749,6 +755,8 @@ void check_const_decl(type_check_t *t, ast_node_T *node) {
   symbol_T var_symbol = symbol_new_var(
       v->t->value, v->t->loc, *node->symbol_type, 0, 0, 1, v->t->value);
 
+  decl->children = start_child_ptr;
+  decl->child_count = start_child_count;
   symbol_table_put(t->table, var_symbol);
 }
 
@@ -756,6 +764,8 @@ void check_var_decl(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check var decl\n");
   ast_decl_T *decl = (ast_decl_T *)node;
   unsigned char is_mut = decl->token->type == T_MUT;
+  size_t start_child_count = decl->child_count;
+  ast_node_T **start_child_ptr = decl->children;
 
   if (decl->child_count == 0 || decl->children[0]->type != AST_VALUE) {
     log_error(decl->token->loc, 1,
@@ -823,6 +833,8 @@ void check_var_decl(type_check_t *t, ast_node_T *node) {
   symbol_T var_symbol = symbol_new_var(v->t->value, v->t->loc,
                                        *node->symbol_type, is_mut, 0, 0, 0);
 
+  decl->children = start_child_ptr;
+  decl->child_count = start_child_count;
   symbol_table_put(t->table, var_symbol);
 }
 
@@ -869,6 +881,8 @@ void check_struct_decl(type_check_t *t, ast_node_T *node) {
   log_debug(t->debug, "type check struct declaration\n");
   node->symbol_type = malloc(sizeof(symbol_T));
   ast_decl_T *decl = (ast_decl_T *)node;
+  size_t start_child_count = decl->child_count;
+  ast_node_T **start_child_ptr = decl->children;
 
   if (decl->child_count == 0 || decl->children[0]->type != AST_VALUE) {
     log_error(decl->token->loc, 1,
@@ -917,6 +931,9 @@ void check_struct_decl(type_check_t *t, ast_node_T *node) {
   symbol_table_put(t->table, struct_symbol);
 
   *node->symbol_type = struct_symbol;
+
+  decl->children = start_child_ptr;
+  decl->child_count = start_child_count;
 }
 
 void check_decl(type_check_t *t, ast_node_T *node) {
@@ -1143,6 +1160,4 @@ void check_program(type_check_t *t, ast_node_T *node) {
   if (t->debug) {
     symbol_table_print(t->table);
   }
-
-  log_todo("Static analysis is not implemented yet\n");
 }

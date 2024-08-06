@@ -1,3 +1,4 @@
+#include "include/lir.h"
 #include "include/logger.h"
 #include "include/parser.h"
 #include "include/symbol_table.h"
@@ -94,6 +95,11 @@ int main(int argc, char **argv) {
   type_check_t *tc = type_check_new(program, s_table, data_table, args->debug);
   program = type_check(tc);
   log_info("Type check finished\n");
+
+  lir_builder_T lir_builder = lir_new_builder(s_table);
+  lir_node_T lir = lir_build(&lir_builder, program);
+
+  log_debug(args->debug, "LIR: %s\n", lir_to_string(&lir));
 
   /*
   char asmpath[strlen(args->out_path) + 5];
