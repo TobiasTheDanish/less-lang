@@ -3,6 +3,7 @@
 #include "include/logger.h"
 #include "include/symbol.h"
 #include "include/token.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +22,7 @@ lir_node_T lir_dump(lir_builder_T *b, ast_dump_T *dump) {
   children[0] = lir_expr(b, dump->value);
 
   return (lir_node_T){
-      .tag = LIR_CALL,
+      .tag = LIR_DUMP,
       .value = "dump",
       .children = children,
       .count = 1,
@@ -254,8 +255,9 @@ lir_node_T lir_build(lir_builder_T *b, ast_node_T *node) {
 }
 
 char *lir_to_string(lir_node_T *n) {
-  char *start = calloc(strlen(n->value) + 3, sizeof(char));
-  sprintf(start, "%s%s", n->value, n->count > 0 ? "(" : "");
+  char *tag_name = lir_tag_name(n);
+  char *start = calloc(strlen(tag_name) + strlen(n->value) + 4, sizeof(char));
+  sprintf(start, "%s %s%s", tag_name, n->value, n->count > 0 ? "(" : "");
 
   for (size_t i = 0; i < n->count; i++) {
     char *child = lir_to_string(&n->children[i]);
@@ -268,4 +270,15 @@ char *lir_to_string(lir_node_T *n) {
   sprintf(final, "%s%s", start, n->count > 0 ? ")" : "");
 
   return final;
+}
+
+char *lir_tag_name(lir_node_T *n) {
+  assert(LIR_TAG_COUNT == 14);
+
+  char *names[LIR_TAG_COUNT] = {
+      "Program", "Label", "Push", "Load", "Store", "Call", "Ident",
+      "Value",   "Add",   "Sub",  "Mul",  "Div",   "Mod",  "Dump",
+  };
+
+  return names[n->tag];
 }

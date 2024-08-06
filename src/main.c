@@ -1,3 +1,4 @@
+#include "include/compiler.h"
 #include "include/lir.h"
 #include "include/logger.h"
 #include "include/parser.h"
@@ -101,11 +102,10 @@ int main(int argc, char **argv) {
 
   log_debug(args->debug, "LIR: %s\n", lir_to_string(&lir));
 
-  /*
   char asmpath[strlen(args->out_path) + 5];
   snprintf(asmpath, strlen(args->out_path) + 5, "%s.asm", args->out_path);
   compiler_T *compiler =
-      compiler_new(program, s_table, data_table, asmpath, args->debug);
+      compiler_new(&lir, s_table, data_table, asmpath, args->debug);
   compile(compiler);
 
   log_info("Asembling\n");
@@ -121,7 +121,6 @@ int main(int argc, char **argv) {
            args->out_path, args->out_path);
   call_cmd(cmd);
   log_info("Linking finished\n");
-  */
 
   return 0;
 }
